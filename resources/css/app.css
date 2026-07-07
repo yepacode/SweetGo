@@ -1,0 +1,11 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    --sweetgo-pink: #F58CD3;
+    --sweetgo-pink-light: #F9E9F8;
+    --sweetgo-turquoise: #81D1D1;
+    --sweetgo-turquoise-light: #C3EAEA;
+    --sweetgo-white: #FFFFFF;
+}

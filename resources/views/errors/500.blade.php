@@ -1,0 +1,5 @@
+@extends('errors.layout')
+@section('title', 'Ocurrió un error')
+@section('codigo', '500')
+@section('titulo', 'Algo salió mal')
+@section('descripcion', 'Estamos trabajando para resolverlo. Intenta nuevamente en un momento o vuelve al panel.')

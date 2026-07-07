@@ -1,0 +1,29 @@
+import defaultTheme from 'tailwindcss/defaultTheme';
+import forms from '@tailwindcss/forms';
+
+/** @type {import('tailwindcss').Config} */
+export default {
+    content: [
+        './vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php',
+        './storage/framework/views/*.php',
+        './resources/views/**/*.blade.php',
+    ],
+
+    theme: {
+        extend: {
+            fontFamily: {
+                sans: ['Figtree', ...defaultTheme.fontFamily.sans],
+            },
+            colors: {
+                sweetgo: {
+                    pink: '#F58CD3',
+                    'pink-light': '#F9E9F8',
+                    turquoise: '#81D1D1',
+                    'turquoise-light': '#C3EAEA',
+                },
+            },
+        },
+    },
+
+    plugins: [forms],
+};
