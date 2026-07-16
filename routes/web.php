@@ -6,6 +6,7 @@ use App\Http\Controllers\CatalogoController;
 use App\Http\Controllers\CategoriaController;
 use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\CotizacionController;
+use App\Http\Controllers\CotizadorController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\GarantiaController;
 use App\Http\Controllers\ListaPrecioController;
@@ -66,11 +67,11 @@ Route::middleware(['auth', 'role:admin|vendedor'])->group(function () {
         Route::delete('productos/{producto}', [ProductoController::class, 'destroy'])->name('productos.destroy');
         Route::delete('categorias/{categoria}', [CategoriaController::class, 'destroy'])->name('categorias.destroy');
 
-        // Catálogo público: gestión de enlaces
-        Route::get('catalogo', [CatalogoController::class, 'index'])->name('catalogo.index');
-        Route::post('catalogo/enlaces', [CatalogoController::class, 'crearEnlace'])->name('catalogo.enlaces.crear');
-        Route::patch('catalogo/enlaces/{enlace}/toggle', [CatalogoController::class, 'toggleEnlace'])->name('catalogo.enlaces.toggle');
-        Route::delete('catalogo/enlaces/{enlace}', [CatalogoController::class, 'eliminarEnlace'])->name('catalogo.enlaces.eliminar');
+        // Links: gestión de enlaces compartibles del catálogo público
+        Route::get('links', [CatalogoController::class, 'index'])->name('links.index');
+        Route::post('links/enlaces', [CatalogoController::class, 'crearEnlace'])->name('links.enlaces.crear');
+        Route::patch('links/enlaces/{enlace}/toggle', [CatalogoController::class, 'toggleEnlace'])->name('links.enlaces.toggle');
+        Route::delete('links/enlaces/{enlace}', [CatalogoController::class, 'eliminarEnlace'])->name('links.enlaces.eliminar');
 
         // Reportes globales
         Route::get('reportes', [ReporteController::class, 'index'])->name('reportes.index');
@@ -106,6 +107,10 @@ Route::middleware(['auth', 'role:admin|vendedor'])->group(function () {
 
     // Clientes (sin eliminar)
     Route::resource('clientes', ClienteController::class)->except(['destroy']);
+
+    // Catálogo interactivo (flujo cliente → productos con precios → carrito → cotización)
+    Route::get('catalogo', [CotizadorController::class, 'index'])->name('catalogo.index');
+    Route::post('catalogo', [CotizadorController::class, 'store'])->name('catalogo.store');
 
     // Cotizaciones (sin eliminar)
     Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class, 'pdf'])->name('cotizaciones.pdf');

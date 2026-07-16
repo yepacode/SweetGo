@@ -9,13 +9,13 @@ use Illuminate\Http\Request;
 
 class CatalogoController extends Controller
 {
-    /** Panel interno: gestión de enlaces públicos + vista previa. */
+    /** Panel interno: gestión de enlaces compartibles del catálogo público. */
     public function index()
     {
         $enlaces = EnlaceCatalogo::latest()->get();
         $totalProductos = Producto::where('activo', true)->count();
 
-        return view('catalogo.index', compact('enlaces', 'totalProductos'));
+        return view('links.index', compact('enlaces', 'totalProductos'));
     }
 
     /** Crea un nuevo enlace público. */
