@@ -28,8 +28,26 @@
         <div class="bg-white rounded-xl border border-sweetgo-pink-light p-6">
             <dl class="space-y-3 text-sm">
                 <div><dt class="text-gray-400">Documento</dt><dd class="text-gray-800">{{ $cliente->tipo_documento }} {{ $cliente->documento ?? '—' }}</dd></div>
-                <div><dt class="text-gray-400">Teléfono</dt><dd class="text-gray-800">{{ $cliente->telefono ?? '—' }}</dd></div>
-                <div><dt class="text-gray-400">Correo</dt><dd class="text-gray-800">{{ $cliente->email ?? '—' }}</dd></div>
+                <div>
+                    <dt class="text-gray-400">Teléfono{{ $cliente->telefonos->count() > 1 ? 's' : '' }}</dt>
+                    <dd class="text-gray-800">
+                        @forelse ($cliente->telefonos as $t)
+                            <div>{{ $t->numero }}@if ($t->etiqueta) <span class="text-xs text-gray-400">· {{ $t->etiqueta }}</span>@endif</div>
+                        @empty
+                            {{ $cliente->telefono ?? '—' }}
+                        @endforelse
+                    </dd>
+                </div>
+                <div>
+                    <dt class="text-gray-400">Correo{{ $cliente->emails->count() > 1 ? 's' : '' }}</dt>
+                    <dd class="text-gray-800">
+                        @forelse ($cliente->emails as $e)
+                            <div>{{ $e->email }}@if ($e->etiqueta) <span class="text-xs text-gray-400">· {{ $e->etiqueta }}</span>@endif</div>
+                        @empty
+                            {{ $cliente->email ?? '—' }}
+                        @endforelse
+                    </dd>
+                </div>
                 <div><dt class="text-gray-400">Dirección</dt><dd class="text-gray-800">{{ $cliente->direccion ?? '—' }}{{ $cliente->ciudad ? ', '.$cliente->ciudad : '' }}</dd></div>
                 <div><dt class="text-gray-400">Lista de precios</dt><dd class="text-gray-800 font-medium">{{ $cliente->listaPrecio?->nombre ?? \App\Models\ListaPrecio::predeterminada()?->nombre ?? '—' }}</dd></div>
                 <div><dt class="text-gray-400">Estado</dt><dd>{!! $cliente->activo ? '<span class="text-sweetgo-turquoise font-medium">Activo</span>' : '<span class="text-gray-400">Inactivo</span>' !!}</dd></div>
@@ -68,6 +86,41 @@
             </table>
         </div>
     </div>
+
+    {{-- Sucursales --}}
+    @if ($cliente->sucursales->count())
+        <div class="bg-white rounded-xl border border-sweetgo-pink-light overflow-hidden mt-6">
+            <div class="px-6 py-4 border-b border-sweetgo-pink-light">
+                <h3 class="font-semibold text-gray-700">Sucursales ({{ $cliente->sucursales->count() }})</h3>
+            </div>
+            <div class="p-6 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                @foreach ($cliente->sucursales as $s)
+                    <div class="border border-gray-100 rounded-lg p-4">
+                        <div class="flex items-start justify-between gap-2 mb-2">
+                            <h4 class="font-medium text-gray-800 text-sm">{{ $s->nombre }}</h4>
+                            @if ($s->es_principal)
+                                <span class="text-[10px] uppercase bg-sweetgo-pink-light text-sweetgo-pink px-1.5 py-0.5 rounded whitespace-nowrap">Principal</span>
+                            @endif
+                        </div>
+                        <dl class="text-xs text-gray-600 space-y-1">
+                            @if ($s->direccion || $s->ciudad)
+                                <div><span class="text-gray-400">Dirección:</span> {{ $s->direccion }}{{ $s->ciudad ? ', '.$s->ciudad : '' }}</div>
+                            @endif
+                            @if ($s->telefono)
+                                <div><span class="text-gray-400">Teléfono:</span> {{ $s->telefono }}</div>
+                            @endif
+                            @if ($s->contacto)
+                                <div><span class="text-gray-400">Contacto:</span> {{ $s->contacto }}</div>
+                            @endif
+                            @if ($s->notas)
+                                <div class="text-gray-500 italic">{{ $s->notas }}</div>
+                            @endif
+                        </dl>
+                    </div>
+                @endforeach
+            </div>
+        </div>
+    @endif
 
     {{-- Garantías del cliente --}}
     <div class="bg-white rounded-xl border border-sweetgo-pink-light overflow-hidden mt-6">

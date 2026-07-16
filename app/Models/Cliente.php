@@ -49,6 +49,21 @@ class Cliente extends Model
         return $this->lista_precio_id ?? ListaPrecio::predeterminada()?->id;
     }
 
+    public function telefonos()
+    {
+        return $this->hasMany(ClienteTelefono::class)->orderBy('orden');
+    }
+
+    public function emails()
+    {
+        return $this->hasMany(ClienteEmail::class)->orderBy('orden');
+    }
+
+    public function sucursales()
+    {
+        return $this->hasMany(ClienteSucursal::class)->orderByDesc('es_principal')->orderBy('orden');
+    }
+
     public function cotizaciones()
     {
         return $this->hasMany(Cotizacion::class);
