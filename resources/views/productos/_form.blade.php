@@ -42,10 +42,10 @@
 
         <div class="bg-white rounded-xl border border-sweetgo-pink-light p-6 grid grid-cols-2 sm:grid-cols-3 gap-4">
             <div>
-                <label class="block text-sm font-medium text-gray-600 mb-1">Precio público (COP) <span class="text-sweetgo-pink">*</span></label>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Precio base (COP) <span class="text-sweetgo-pink">*</span></label>
                 <input type="number" name="precio" step="1" min="0" value="{{ old('precio', $p?->precio ? (int) $p->precio : '') }}" required
                        class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
-                <p class="mt-1 text-[11px] text-gray-400">Precios mayorista/otros en <a href="{{ route('listas-precios.index') }}" class="text-sweetgo-turquoise hover:underline">Listas de precios</a>.</p>
+                <p class="mt-1 text-[11px] text-gray-400">Se usa como fallback si no defines precios por lista.</p>
             </div>
             @unless ($p)
                 <div>
@@ -60,6 +60,38 @@
                        class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
             </div>
         </div>
+
+        {{-- Precios por lista --}}
+        @if (($listas ?? collect())->count())
+            <div class="bg-white rounded-xl border border-sweetgo-pink-light p-6">
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <h3 class="text-sm font-semibold text-gray-700">Precios por lista</h3>
+                        <p class="text-[11px] text-gray-400">Deja vacío para usar el precio base. La lista pública también actualiza el precio del catálogo.</p>
+                    </div>
+                    <a href="{{ route('listas-precios.index') }}" class="text-[11px] text-sweetgo-turquoise hover:underline whitespace-nowrap">Gestionar listas →</a>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    @foreach ($listas as $lista)
+                        <div>
+                            <label class="block text-sm font-medium text-gray-600 mb-1 flex items-center gap-1">
+                                {{ $lista->nombre }}
+                                @if ($lista->es_publica)
+                                    <span class="text-[10px] uppercase bg-sweetgo-turquoise-light text-sweetgo-turquoise px-1.5 py-0.5 rounded">Pública</span>
+                                @endif
+                                @if ($lista->es_predeterminada)
+                                    <span class="text-[10px] uppercase bg-sweetgo-pink-light text-sweetgo-pink px-1.5 py-0.5 rounded">Predet.</span>
+                                @endif
+                            </label>
+                            <input type="number" name="precios_lista[{{ $lista->id }}]" step="1" min="0"
+                                   value="{{ old('precios_lista.'.$lista->id, isset($preciosActuales[$lista->id]) ? (int) $preciosActuales[$lista->id] : '') }}"
+                                   placeholder="{{ $p?->precio ? (int) $p->precio : 'Precio base' }}"
+                                   class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                        </div>
+                    @endforeach
+                </div>
+            </div>
+        @endif
     </div>
 
     {{-- Columna lateral --}}

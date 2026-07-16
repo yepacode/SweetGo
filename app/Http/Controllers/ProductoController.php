@@ -39,8 +39,10 @@ class ProductoController extends Controller
     public function create()
     {
         $categorias = Categoria::orderBy('nombre')->get();
+        $listas = ListaPrecio::orderByDesc('es_publica')->orderByDesc('es_predeterminada')->orderBy('nombre')->get();
+        $preciosActuales = []; // producto nuevo → aún sin precios por lista
 
-        return view('productos.create', compact('categorias'));
+        return view('productos.create', compact('categorias', 'listas', 'preciosActuales'));
     }
 
     public function store(Request $request)
@@ -52,14 +54,18 @@ class ProductoController extends Controller
         }
 
         $stockInicial = (int) $request->input('stock_actual', 0);
-        unset($data['stock_actual']); // el stock se maneja vía movimiento
+        $preciosLista = $request->input('precios_lista', []);
+        unset($data['stock_actual'], $data['precios_lista']); // el stock se maneja vía movimiento
 
         $producto = Producto::create($data + ['stock_actual' => 0]);
 
-        // Sembrar el precio en todas las listas (= precio base al crear).
+        // Sembrar precio por lista: valor del form si viene, sino precio base.
         foreach (ListaPrecio::all() as $lista) {
-            $producto->preciosProducto()->create(['lista_precio_id' => $lista->id, 'precio' => $producto->precio]);
+            $valor = $preciosLista[$lista->id] ?? null;
+            $precio = ($valor !== null && $valor !== '') ? (float) $valor : (float) $producto->precio;
+            $producto->preciosProducto()->create(['lista_precio_id' => $lista->id, 'precio' => $precio]);
         }
+        $this->sincronizarPrecioBaseConPublica($producto, $preciosLista);
 
         if ($stockInicial > 0) {
             $producto->registrarMovimiento('entrada', $stockInicial, 'Stock inicial');
@@ -80,8 +86,10 @@ class ProductoController extends Controller
     public function edit(Producto $producto)
     {
         $categorias = Categoria::orderBy('nombre')->get();
+        $listas = ListaPrecio::orderByDesc('es_publica')->orderByDesc('es_predeterminada')->orderBy('nombre')->get();
+        $preciosActuales = $producto->preciosProducto()->pluck('precio', 'lista_precio_id')->all();
 
-        return view('productos.edit', compact('producto', 'categorias'));
+        return view('productos.edit', compact('producto', 'categorias', 'listas', 'preciosActuales'));
     }
 
     public function update(Request $request, Producto $producto)
@@ -95,19 +103,39 @@ class ProductoController extends Controller
             $data['imagen'] = $request->file('imagen')->store('productos', 'public');
         }
 
-        unset($data['stock_actual']); // el stock no se edita aquí, se ajusta en inventario
+        $preciosLista = $request->input('precios_lista', []);
+        unset($data['stock_actual'], $data['precios_lista']); // el stock no se edita aquí, se ajusta en inventario
         $producto->update($data);
 
-        // El precio base editado aquí actualiza la lista pública (que ve el catálogo).
-        if ($publica = ListaPrecio::publica()) {
+        // Actualizar precio en cada lista con el valor enviado (o precio base si viene vacío).
+        foreach (ListaPrecio::all() as $lista) {
+            $valor = $preciosLista[$lista->id] ?? null;
+            $precio = ($valor !== null && $valor !== '') ? (float) $valor : (float) $producto->precio;
             $producto->preciosProducto()->updateOrCreate(
-                ['lista_precio_id' => $publica->id],
-                ['precio' => $producto->precio]
+                ['lista_precio_id' => $lista->id],
+                ['precio' => $precio]
             );
         }
+        $this->sincronizarPrecioBaseConPublica($producto, $preciosLista);
 
         return redirect()->route('productos.index')
-            ->with('success', "Producto «{$producto->nombre}» actualizado. (Otros precios se ajustan en Listas de precios.)");
+            ->with('success', "Producto «{$producto->nombre}» actualizado.");
+    }
+
+    /**
+     * Si el usuario definió un precio para la lista pública, ese valor manda sobre productos.precio
+     * (para mantener consistencia con el catálogo público).
+     */
+    private function sincronizarPrecioBaseConPublica(Producto $producto, array $preciosLista): void
+    {
+        $publica = ListaPrecio::publica();
+        if (! $publica) {
+            return;
+        }
+        $valor = $preciosLista[$publica->id] ?? null;
+        if ($valor !== null && $valor !== '' && (float) $valor !== (float) $producto->precio) {
+            $producto->update(['precio' => (float) $valor]);
+        }
     }
 
     public function destroy(Producto $producto)
@@ -170,10 +198,13 @@ class ProductoController extends Controller
             'stock_minimo' => ['nullable', 'integer', 'min:0'],
             'imagen' => ['nullable', 'image', 'max:4096'],
             'activo' => ['nullable', 'boolean'],
+            'precios_lista' => ['nullable', 'array'],
+            'precios_lista.*' => ['nullable', 'numeric', 'min:0'],
         ], [], [
             'categoria_id' => 'categoría',
             'stock_actual' => 'stock inicial',
             'stock_minimo' => 'stock mínimo',
+            'precios_lista.*' => 'precio por lista',
         ]);
     }
 }
