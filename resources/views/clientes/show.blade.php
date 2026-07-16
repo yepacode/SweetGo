@@ -10,7 +10,7 @@
         </div>
         <div class="flex gap-2">
             <a href="{{ route('garantias.create', ['cliente' => $cliente->id]) }}" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50">Registrar garantía</a>
-            <a href="{{ route('cotizaciones.create', ['cliente' => $cliente->id]) }}" class="px-4 py-2 rounded-lg border border-sweetgo-turquoise text-sweetgo-turquoise text-sm hover:bg-sweetgo-turquoise-light">Nueva cotización</a>
+            <a href="{{ route('catalogo.index', ['cliente' => $cliente->id]) }}" class="px-4 py-2 rounded-lg border border-sweetgo-turquoise text-sweetgo-turquoise text-sm hover:bg-sweetgo-turquoise-light">Nueva cotización</a>
             <a href="{{ route('clientes.edit', $cliente) }}" class="px-4 py-2 rounded-lg bg-sweetgo-pink text-white text-sm hover:opacity-90">Editar</a>
         </div>
     </div>
@@ -50,6 +50,7 @@
                 </div>
                 <div><dt class="text-gray-400">Dirección</dt><dd class="text-gray-800">{{ $cliente->direccion ?? '—' }}{{ $cliente->ciudad ? ', '.$cliente->ciudad : '' }}</dd></div>
                 <div><dt class="text-gray-400">Lista de precios</dt><dd class="text-gray-800 font-medium">{{ $cliente->listaPrecio?->nombre ?? \App\Models\ListaPrecio::predeterminada()?->nombre ?? '—' }}</dd></div>
+                <div><dt class="text-gray-400">Vendedor asignado</dt><dd class="text-gray-800">{{ $cliente->vendedor?->name ?? '—' }}</dd></div>
                 <div><dt class="text-gray-400">Estado</dt><dd>{!! $cliente->activo ? '<span class="text-sweetgo-turquoise font-medium">Activo</span>' : '<span class="text-gray-400">Inactivo</span>' !!}</dd></div>
                 @if ($cliente->notas)
                     <div><dt class="text-gray-400">Notas</dt><dd class="text-gray-600">{{ $cliente->notas }}</dd></div>
@@ -80,7 +81,7 @@
                             <td class="px-6 py-2 text-right font-medium">${{ number_format($cot->total, 0, ',', '.') }}</td>
                         </tr>
                     @empty
-                        <tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Sin cotizaciones. <a href="{{ route('cotizaciones.create', ['cliente' => $cliente->id]) }}" class="text-sweetgo-pink hover:underline">Crear la primera</a>.</td></tr>
+                        <tr><td colspan="4" class="px-6 py-8 text-center text-gray-400">Sin cotizaciones. <a href="{{ route('catalogo.index', ['cliente' => $cliente->id]) }}" class="text-sweetgo-pink hover:underline">Crear la primera</a>.</td></tr>
                     @endforelse
                 </tbody>
             </table>

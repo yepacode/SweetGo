@@ -123,16 +123,32 @@
         </div>
     </div>
 
-    <div>
-        <label class="block text-sm font-medium text-gray-600 mb-1">Lista de precios</label>
-        <select name="lista_precio_id" class="w-full sm:w-1/2 rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
-            @foreach ($listas as $lista)
-                <option value="{{ $lista->id }}" @selected(old('lista_precio_id', $c?->lista_precio_id ?? $listaDefault) == $lista->id)>
-                    {{ $lista->nombre }}@if ($lista->es_predeterminada) (predeterminada)@endif
-                </option>
-            @endforeach
-        </select>
-        <p class="mt-1 text-xs text-gray-400">Determina qué precios se aplican al cotizar para este cliente.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-600 mb-1">Lista de precios</label>
+            <select name="lista_precio_id" class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                @foreach ($listas as $lista)
+                    <option value="{{ $lista->id }}" @selected(old('lista_precio_id', $c?->lista_precio_id ?? $listaDefault) == $lista->id)>
+                        {{ $lista->nombre }}@if ($lista->es_predeterminada) (predeterminada)@endif
+                    </option>
+                @endforeach
+            </select>
+            <p class="mt-1 text-xs text-gray-400">Determina qué precios se aplican al cotizar para este cliente.</p>
+        </div>
+
+        @if (auth()->user()->hasRole('admin') && isset($vendedores) && $vendedores->count())
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Vendedor asignado</label>
+                <select name="user_id" class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                    @foreach ($vendedores as $v)
+                        <option value="{{ $v->id }}" @selected(old('user_id', $c?->user_id ?? auth()->id()) == $v->id)>
+                            {{ $v->name }}@if ($v->id === auth()->id()) (yo)@endif
+                        </option>
+                    @endforeach
+                </select>
+                <p class="mt-1 text-xs text-gray-400">Solo el vendedor asignado (o cualquier admin) puede ver este cliente en el catálogo.</p>
+            </div>
+        @endif
     </div>
 
     <div>

@@ -28,6 +28,9 @@
                         <th class="px-4 py-3 font-medium">Documento</th>
                         <th class="px-4 py-3 font-medium">Contacto</th>
                         <th class="px-4 py-3 font-medium">Ciudad</th>
+                        @if (auth()->user()->hasRole('admin'))
+                            <th class="px-4 py-3 font-medium">Vendedor</th>
+                        @endif
                         <th class="px-4 py-3 font-medium text-center">Cotizaciones</th>
                         <th class="px-4 py-3 font-medium text-right">Acciones</th>
                     </tr>
@@ -44,6 +47,9 @@
                                 @if ($c->email)<br><span class="text-xs">{{ $c->email }}</span>@endif
                             </td>
                             <td class="px-4 py-3 text-gray-500">{{ $c->ciudad ?? '—' }}</td>
+                            @if (auth()->user()->hasRole('admin'))
+                                <td class="px-4 py-3 text-gray-500">{{ $c->vendedor?->name ?? '—' }}</td>
+                            @endif
                             <td class="px-4 py-3 text-center">
                                 <span class="inline-block px-2 py-0.5 rounded-full bg-sweetgo-turquoise-light text-teal-700 text-xs">{{ $c->cotizaciones_count }}</span>
                             </td>
@@ -62,7 +68,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td colspan="6" class="px-4 py-10 text-center text-gray-400">No hay clientes aún.</td></tr>
+                        <tr><td colspan="{{ auth()->user()->hasRole('admin') ? 7 : 6 }}" class="px-4 py-10 text-center text-gray-400">No hay clientes aún.</td></tr>
                     @endforelse
                 </tbody>
             </table>
