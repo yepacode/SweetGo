@@ -9,8 +9,8 @@ class CotizacionItem extends Model
     protected $table = 'cotizacion_items';
 
     protected $fillable = [
-        'cotizacion_id', 'producto_id', 'nombre', 'referencia',
-        'cantidad', 'precio_unitario', 'subtotal',
+        'cotizacion_id', 'producto_id', 'variante_producto_id', 'variante_nombre',
+        'nombre', 'referencia', 'cantidad', 'precio_unitario', 'subtotal',
     ];
 
     protected $casts = [

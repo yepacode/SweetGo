@@ -49,23 +49,44 @@ class CotizadorController extends Controller
 
         $productos = Producto::query()
             ->where('activo', true)
-            ->with(['categoria', 'preciosProducto'])
+            ->with(['categoria', 'preciosProducto', 'variantesActivas.precios'])
             ->orderBy('nombre')
             ->get()
-            ->map(fn ($p) => [
-                'id' => $p->id,
-                'nombre' => $p->nombre,
-                'referencia' => $p->referencia,
-                'descripcion' => $p->descripcion,
-                'precio_base' => (float) $p->precio,
-                'categoria' => $p->categoria?->nombre,
-                'categoria_id' => $p->categoria_id,
-                'imagen' => $p->imagen ? Storage::url($p->imagen) : null,
-                'stock' => (int) $p->stock_actual,
-                'stock_minimo' => (int) $p->stock_minimo,
-                'stock_maximo' => $p->stock_maximo,
-                'precios' => $p->preciosProducto->mapWithKeys(fn ($pp) => [(int) $pp->lista_precio_id => (float) $pp->precio]),
-            ])->values();
+            ->map(function ($p) {
+                $preciosPadre = $p->preciosProducto->mapWithKeys(fn ($pp) => [(int) $pp->lista_precio_id => (float) $pp->precio]);
+                $variantes = $p->variantesActivas->map(function ($v) use ($preciosPadre, $p) {
+                    // Precios efectivos por lista: propios de la variante o fallback al padre
+                    $preciosVar = $v->precios->mapWithKeys(fn ($pv) => [(int) $pv->lista_precio_id => (float) $pv->precio]);
+                    return [
+                        'id' => $v->id,
+                        'nombre' => $v->nombre,
+                        'referencia' => $v->referencia,
+                        'stock' => (int) $v->stock_actual,
+                        'stock_maximo' => $v->stock_maximo,
+                        'precios' => $preciosVar,
+                        'precio_padre_base' => (float) $p->precio,
+                    ];
+                })->values();
+                $tieneVariantes = $variantes->isNotEmpty();
+
+                return [
+                    'id' => $p->id,
+                    'nombre' => $p->nombre,
+                    'referencia' => $p->referencia,
+                    'descripcion' => $p->descripcion,
+                    'precio_base' => (float) $p->precio,
+                    'categoria' => $p->categoria?->nombre,
+                    'categoria_id' => $p->categoria_id,
+                    'imagen' => $p->imagen ? Storage::url($p->imagen) : null,
+                    // Si hay variantes, el stock del "producto" en el catálogo es la suma de sus variantes.
+                    'stock' => $tieneVariantes ? (int) $variantes->sum('stock') : (int) $p->stock_actual,
+                    'stock_minimo' => (int) $p->stock_minimo,
+                    'stock_maximo' => $p->stock_maximo,
+                    'precios' => $preciosPadre,
+                    'variantes' => $variantes,
+                    'tiene_variantes' => $tieneVariantes,
+                ];
+            })->values();
 
         $categorias = Categoria::orderBy('nombre')->get(['id', 'nombre']);
         $listasPrecios = ListaPrecio::where('activo', true)
@@ -83,9 +104,12 @@ class CotizadorController extends Controller
             'fecha' => ['required', 'date'],
             'validez' => ['nullable', 'date', 'after_or_equal:fecha'],
             'descuento' => ['nullable', 'numeric', 'min:0'],
+            'con_iva' => ['nullable', 'in:0,1,true,false'],
+            'iva_porcentaje' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'notas' => ['nullable', 'string'],
             'items' => ['required', 'array', 'min:1'],
             'items.*.producto_id' => ['required', 'exists:productos,id'],
+            'items.*.variante_producto_id' => ['nullable', 'integer', 'exists:variantes_producto,id'],
             'items.*.cantidad' => ['required', 'integer', 'min:1'],
             'items.*.precio_unitario' => ['required', 'numeric', 'min:0'],
         ], [
@@ -106,6 +130,15 @@ class CotizadorController extends Controller
             $cliente = Cliente::with('listaPrecio')->find($data['cliente_id']);
             $listaId = $cliente->lista_precio_id ?? ListaPrecio::predeterminada()?->id;
             foreach ($data['items'] as $i => $item) {
+                // Si el item es una variante: precio de la variante (con fallback al padre).
+                if (! empty($item['variante_producto_id'])) {
+                    $variante = \App\Models\VarianteProducto::with(['precios', 'producto.preciosProducto'])->find($item['variante_producto_id']);
+                    if ($variante) {
+                        $data['items'][$i]['precio_unitario'] = (float) $variante->precioEnLista($listaId);
+                        continue;
+                    }
+                }
+                // Producto sin variante: precio del producto.
                 $producto = Producto::with('preciosProducto')->find($item['producto_id']);
                 if (! $producto) continue;
                 $data['items'][$i]['precio_unitario'] = (float) $producto->precioEnLista($listaId);
@@ -120,6 +153,8 @@ class CotizadorController extends Controller
                 'fecha' => $data['fecha'],
                 'validez' => $data['validez'] ?? null,
                 'descuento' => $data['descuento'] ?? 0,
+                'con_iva' => in_array($data['con_iva'] ?? '0', ['1', 'true', true, 1], true),
+                'iva_porcentaje' => $data['iva_porcentaje'] ?? 19,
                 'notas' => $data['notas'] ?? null,
             ]);
 
@@ -131,10 +166,17 @@ class CotizadorController extends Controller
                 $cantidad = max(1, (int) $item['cantidad']);
                 $precio = (float) $item['precio_unitario'];
 
+                // Si es una variante, la referencia congelada es la de la variante y el nombre lleva "Producto · Variante".
+                $variante = ! empty($item['variante_producto_id'])
+                    ? \App\Models\VarianteProducto::where('producto_id', $producto->id)->find($item['variante_producto_id'])
+                    : null;
+
                 $cot->items()->create([
                     'producto_id' => $producto->id,
-                    'nombre' => $producto->nombre,
-                    'referencia' => $producto->referencia,
+                    'variante_producto_id' => $variante?->id,
+                    'variante_nombre' => $variante?->nombre,
+                    'nombre' => $variante ? $producto->nombre . ' · ' . $variante->nombre : $producto->nombre,
+                    'referencia' => $variante?->referencia ?? $producto->referencia,
                     'cantidad' => $cantidad,
                     'precio_unitario' => $precio,
                     'subtotal' => $precio * $cantidad,

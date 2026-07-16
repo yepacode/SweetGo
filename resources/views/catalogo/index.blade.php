@@ -244,6 +244,9 @@
                                 </span>
                                 <span x-show="p.stock <= 0"
                                       class="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">Agotado</span>
+                                <span x-show="p.tiene_variantes" x-cloak
+                                      class="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-sweetgo-pink-light text-sweetgo-pink border border-sweetgo-pink/40 ml-1"
+                                      x-text="p.variantes.length + ' variantes'"></span>
                             </div>
 
                             {{-- Botones acción (siempre visibles) --}}
@@ -256,10 +259,13 @@
                                 <button type="button" @click.stop="agregar(p)"
                                         :disabled="p.stock <= 0"
                                         class="flex-1 px-2 py-1.5 rounded-lg bg-sweetgo-pink text-white text-[11px] font-medium hover:opacity-90 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1">
-                                    <template x-if="!enCarrito(p.id)">
+                                    <template x-if="p.tiene_variantes">
+                                        <span>Elegir variante</span>
+                                    </template>
+                                    <template x-if="!p.tiene_variantes && !enCarrito(p.id)">
                                         <span>+ Agregar</span>
                                     </template>
-                                    <template x-if="enCarrito(p.id)">
+                                    <template x-if="!p.tiene_variantes && enCarrito(p.id)">
                                         <span>✓ (<span x-text="cantidadEn(p.id)"></span>)</span>
                                     </template>
                                 </button>
@@ -374,7 +380,16 @@
                             <span>Subtotal</span>
                             <span x-text="money(subtotal())"></span>
                         </div>
-                        <div class="flex justify-between font-bold text-sweetgo-pink text-base">
+                        {{-- Toggle IVA --}}
+                        <label class="flex items-center justify-between text-xs text-gray-600 py-1 cursor-pointer">
+                            <span class="flex items-center gap-2">
+                                <input type="checkbox" x-model="conIva"
+                                       class="rounded border-gray-300 text-sweetgo-pink focus:ring-sweetgo-pink">
+                                <span>Aplicar IVA (<span x-text="ivaPorcentaje"></span>%)</span>
+                            </span>
+                            <span x-show="conIva" x-cloak class="text-gray-500" x-text="'+' + money(montoIva())"></span>
+                        </label>
+                        <div class="flex justify-between font-bold text-sweetgo-pink text-base pt-1">
                             <span>Total</span>
                             <span x-text="money(total())"></span>
                         </div>
@@ -455,8 +470,8 @@
                                     <p class="text-2xl font-bold text-sweetgo-pink" x-text="money(precioEn(productoDetalle))"></p>
                                 </div>
 
-                                {{-- Tabla precios por lista --}}
-                                <div x-show="listasPrecios.length > 1" x-cloak class="rounded-lg border border-gray-100 overflow-hidden">
+                                {{-- Tabla precios por lista (solo si NO tiene variantes) --}}
+                                <div x-show="!productoDetalle.tiene_variantes && listasPrecios.length > 1" x-cloak class="rounded-lg border border-gray-100 overflow-hidden">
                                     <div class="px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500 font-medium">Precios por lista</div>
                                     <table class="w-full text-sm">
                                         <tbody>
@@ -475,6 +490,37 @@
                                         </tbody>
                                     </table>
                                 </div>
+
+                                {{-- Selector de variantes --}}
+                                <div x-show="productoDetalle.tiene_variantes" x-cloak class="rounded-lg border border-sweetgo-pink-light overflow-hidden">
+                                    <div class="px-3 py-2 bg-sweetgo-pink-light/40 text-[10px] uppercase tracking-wide text-sweetgo-pink font-semibold">Elige una variante</div>
+                                    <div class="divide-y divide-gray-100">
+                                        <template x-for="v in productoDetalle.variantes" :key="v.id">
+                                            <div class="px-3 py-2.5 flex items-center gap-3">
+                                                <div class="flex-1 min-w-0">
+                                                    <p class="text-sm font-medium text-gray-800 truncate" x-text="v.nombre"></p>
+                                                    <p class="text-[10px] text-sweetgo-turquoise">Ref <span x-text="v.referencia"></span></p>
+                                                </div>
+                                                <div class="text-right">
+                                                    <p class="text-sm font-bold text-sweetgo-pink" x-text="money(precioVariante(productoDetalle, v))"></p>
+                                                    <p class="text-[10px]"
+                                                       :class="v.stock > 0 ? 'text-sweetgo-turquoise' : 'text-gray-400'"
+                                                       x-text="v.stock > 0 ? v.stock + ' disp.' : 'Agotado'"></p>
+                                                </div>
+                                                <button type="button" @click="agregarVariante(productoDetalle, v)"
+                                                        :disabled="v.stock <= 0"
+                                                        class="px-3 py-1.5 rounded-lg bg-sweetgo-pink text-white text-xs font-medium hover:opacity-90 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed inline-flex items-center gap-1 whitespace-nowrap">
+                                                    <template x-if="!enCarrito(productoDetalle.id, v.id)">
+                                                        <span>+ Agregar</span>
+                                                    </template>
+                                                    <template x-if="enCarrito(productoDetalle.id, v.id)">
+                                                        <span>✓ (<span x-text="cantidadEn(productoDetalle.id, v.id)"></span>)</span>
+                                                    </template>
+                                                </button>
+                                            </div>
+                                        </template>
+                                    </div>
+                                </div>
                             </div>
                         </div>
 
@@ -482,7 +528,8 @@
                         <div class="px-5 py-3 border-t border-sweetgo-pink-light bg-white flex items-center gap-2 shrink-0">
                             <button type="button" @click="productoDetalle = null"
                                     class="px-4 py-2 rounded-lg border border-gray-200 text-gray-500 text-sm hover:bg-gray-50">Cerrar</button>
-                            <button type="button" @click="agregar(productoDetalle); productoDetalle = null"
+                            <button type="button" x-show="!productoDetalle.tiene_variantes"
+                                    @click="agregar(productoDetalle); productoDetalle = null"
                                     :disabled="productoDetalle.stock <= 0"
                                     class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-sweetgo-pink text-white text-sm font-semibold hover:opacity-90 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed">
                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
@@ -534,6 +581,8 @@
                 fecha: hoyLocal(),
                 validez: '',
                 descuento: 0,
+                conIva: false,
+                ivaPorcentaje: 19,
                 enviando: false,
                 mensajeError: '',
 
@@ -644,28 +693,62 @@
                     });
                 },
 
-                enCarrito(id) { return this.carrito.some(i => i.producto_id === id); },
-                cantidadEn(id) { return this.carrito.find(i => i.producto_id === id)?.cantidad || 0; },
+                enCarrito(id, varianteId = null) {
+                    return this.carrito.some(i => i.producto_id === id && (i.variante_producto_id ?? null) === varianteId);
+                },
+                cantidadEn(id, varianteId = null) {
+                    return this.carrito.find(i => i.producto_id === id && (i.variante_producto_id ?? null) === varianteId)?.cantidad || 0;
+                },
 
                 verDetalle(p) {
                     this.productoDetalle = p;
                 },
 
+                /** Devuelve el precio de una variante en la lista del cliente actual, con fallback al padre. */
+                precioVariante(p, v) {
+                    if (!this.clienteSel) return v.precio_padre_base || p.precio_base;
+                    const listaId = this.clienteSel.lista_precio_id;
+                    if (listaId && v.precios && v.precios[listaId] !== undefined) {
+                        return Number(v.precios[listaId]);
+                    }
+                    return this.precioEn(p);
+                },
+
                 agregar(p) {
-                    const existente = this.carrito.find(i => i.producto_id === p.id);
+                    if (p.tiene_variantes) {
+                        // Abrimos el mini-modal de variantes; el modal grande de detalle también soporta agregar.
+                        this.productoDetalle = p;
+                        return;
+                    }
+                    this._agregarItem({
+                        producto_id: p.id,
+                        variante_producto_id: null,
+                        nombre: p.nombre,
+                        referencia: p.referencia,
+                        precio_unitario: this.precioEn(p),
+                    });
+                    this.pulsarBoton();
+                },
+
+                agregarVariante(p, v) {
+                    this._agregarItem({
+                        producto_id: p.id,
+                        variante_producto_id: v.id,
+                        nombre: p.nombre + ' · ' + v.nombre,
+                        referencia: v.referencia,
+                        precio_unitario: this.precioVariante(p, v),
+                    });
+                    this.pulsarBoton();
+                },
+
+                _agregarItem(item) {
+                    const key = i => i.producto_id === item.producto_id && (i.variante_producto_id ?? null) === (item.variante_producto_id ?? null);
+                    const existente = this.carrito.find(key);
                     if (existente) {
                         existente.cantidad += 1;
                     } else {
-                        this.carrito.push({
-                            producto_id: p.id,
-                            nombre: p.nombre,
-                            referencia: p.referencia,
-                            cantidad: 1,
-                            precio_unitario: this.precioEn(p),
-                        });
+                        this.carrito.push({...item, cantidad: 1});
                     }
-                    // Feedback visual sin ser intrusivo: micro-toast al pulsar en el botón flotante
-                    this.pulsarBoton();
                 },
 
                 pulsarBoton() {
@@ -687,8 +770,15 @@
                 descuentoAplicado() {
                     return Math.max(0, Math.min(Number(this.descuento) || 0, this.subtotal()));
                 },
-                total() {
+                baseImponible() {
                     return Math.max(0, this.subtotal() - this.descuentoAplicado());
+                },
+                montoIva() {
+                    if (!this.conIva) return 0;
+                    return Math.round(this.baseImponible() * (Number(this.ivaPorcentaje) / 100));
+                },
+                total() {
+                    return this.baseImponible() + this.montoIva();
                 },
 
                 puedeEnviar() {
@@ -715,9 +805,14 @@
                     fd.append('fecha', this.fecha);
                     if (this.validez) fd.append('validez', this.validez);
                     fd.append('descuento', Math.max(0, Number(this.descuento) || 0));
+                    fd.append('con_iva', this.conIva ? '1' : '0');
+                    fd.append('iva_porcentaje', this.ivaPorcentaje);
                     if (this.notas) fd.append('notas', this.notas);
                     this.carrito.forEach((i, idx) => {
                         fd.append(`items[${idx}][producto_id]`, i.producto_id);
+                        if (i.variante_producto_id) {
+                            fd.append(`items[${idx}][variante_producto_id]`, i.variante_producto_id);
+                        }
                         fd.append(`items[${idx}][cantidad]`, Math.max(1, Number(i.cantidad) || 1));
                         fd.append(`items[${idx}][precio_unitario]`, Math.max(0, Number(i.precio_unitario) || 0));
                     });

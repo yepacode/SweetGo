@@ -99,6 +99,98 @@
                 </div>
             </div>
         @endif
+
+        {{-- Variantes del producto (color, talla, presentación…) --}}
+        <div class="bg-white rounded-xl border border-sweetgo-pink-light p-6"
+             x-data="{ items: {{ Illuminate\Support\Js::from(array_values(old('variantes', $variantesIniciales ?? []))) }}, listas: {{ Illuminate\Support\Js::from(($listas ?? collect())->map(fn ($l) => ['id' => $l->id, 'nombre' => $l->nombre])->values()) }} }">
+            <div class="flex items-start justify-between mb-3">
+                <div>
+                    <h3 class="text-sm font-semibold text-gray-700">Variantes</h3>
+                    <p class="text-[11px] text-gray-400">
+                        Añade variantes (color, talla, presentación…) con referencia y stock propios.
+                        <span x-show="items.length > 0" class="text-sweetgo-turquoise">Si hay variantes, el stock del producto se calcula sumando las variantes.</span>
+                    </p>
+                </div>
+                <button type="button"
+                        @click="items.push({id:null, nombre:'', referencia:'', stock_actual:0, stock_minimo:0, stock_maximo:'', activo:'1', precios: Object.fromEntries(listas.map(l => [l.id, '']))})"
+                        class="text-[11px] text-sweetgo-turquoise hover:underline whitespace-nowrap">+ Agregar variante</button>
+            </div>
+
+            <template x-if="items.length === 0">
+                <p class="text-xs text-gray-400 italic">Sin variantes. El producto se manejará con un solo stock y sus precios por lista.</p>
+            </template>
+
+            <div class="space-y-3">
+                <template x-for="(v, i) in items" :key="i">
+                    <div class="border border-gray-100 rounded-lg p-3 relative">
+                        <button type="button" @click="items.splice(i, 1)"
+                                class="absolute top-2 right-2 text-gray-300 hover:text-red-500 text-lg leading-none [&_*]:pointer-events-none">×</button>
+
+                        <input type="hidden" :name="`variantes[${i}][id]`" :value="v.id ?? ''">
+                        <input type="hidden" :name="`variantes[${i}][activo]`" :value="v.activo">
+
+                        <div class="grid grid-cols-1 sm:grid-cols-5 gap-2">
+                            <div class="sm:col-span-2">
+                                <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Nombre <span class="text-sweetgo-pink">*</span></label>
+                                <input type="text" :name="`variantes[${i}][nombre]`" x-model="v.nombre" required
+                                       placeholder="Rosa, Talla M, 500 ml…"
+                                       class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm">
+                            </div>
+                            <div class="sm:col-span-2">
+                                <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Referencia <span class="text-sweetgo-pink">*</span></label>
+                                <input type="text" :name="`variantes[${i}][referencia]`" x-model="v.referencia" required
+                                       placeholder="Única global"
+                                       class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Estado</label>
+                                <select :name="`variantes[${i}][activo]__ignored`"
+                                        @change="v.activo = $event.target.value"
+                                        class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm">
+                                    <option value="1" :selected="v.activo === '1'">Activa</option>
+                                    <option value="0" :selected="v.activo === '0'">Inactiva</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-3 gap-2 mt-2">
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Stock</label>
+                                <input type="number" :name="`variantes[${i}][stock_actual]`" x-model.number="v.stock_actual"
+                                       min="0" step="1" :disabled="!!v.id"
+                                       class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm disabled:bg-gray-50"
+                                       :title="v.id ? 'Se ajusta desde Inventario' : ''">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Stock mín.</label>
+                                <input type="number" :name="`variantes[${i}][stock_minimo]`" x-model.number="v.stock_minimo" min="0" step="1"
+                                       class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Stock máx.</label>
+                                <input type="number" :name="`variantes[${i}][stock_maximo]`" x-model="v.stock_maximo" min="0" step="1" placeholder="Sin límite"
+                                       class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm">
+                            </div>
+                        </div>
+
+                        <div class="mt-3 pt-3 border-t border-gray-100">
+                            <p class="text-[10px] uppercase tracking-wide text-gray-500 mb-2 font-medium">Precios por lista <span class="text-gray-400 normal-case">— vacío = usa el precio del producto padre</span></p>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <template x-for="l in listas" :key="l.id">
+                                    <div>
+                                        <label class="block text-[10px] text-gray-500 mb-1" x-text="l.nombre"></label>
+                                        <input type="number" :name="`variantes[${i}][precios][${l.id}]`" :value="v.precios?.[l.id] ?? ''"
+                                               @input="v.precios = {...(v.precios||{}), [l.id]: $event.target.value}"
+                                               min="0" step="1" placeholder="Padre"
+                                               class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm">
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
     </div>
 
     {{-- Columna lateral --}}

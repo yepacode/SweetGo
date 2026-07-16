@@ -48,6 +48,30 @@ class Producto extends Model
         return $this->hasMany(PrecioProducto::class);
     }
 
+    public function variantes()
+    {
+        return $this->hasMany(VarianteProducto::class)->orderBy('orden');
+    }
+
+    public function variantesActivas()
+    {
+        return $this->hasMany(VarianteProducto::class)->where('activo', true)->orderBy('orden');
+    }
+
+    public function tieneVariantes(): bool
+    {
+        return $this->variantes()->exists();
+    }
+
+    /** Cuando el producto usa variantes, el stock total = suma de todas sus variantes activas. */
+    public function stockTotalConVariantes(): int
+    {
+        if ($this->tieneVariantes()) {
+            return (int) $this->variantesActivas()->sum('stock_actual');
+        }
+        return (int) $this->stock_actual;
+    }
+
     /**
      * Precio del producto en una lista dada.
      * Si no hay precio específico en esa lista, cae al precio base (productos.precio).
