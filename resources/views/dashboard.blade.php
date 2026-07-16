@@ -30,6 +30,50 @@
         @endforeach
     </div>
 
+    {{-- Facturación del mes: con IVA vs sin IVA --}}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+        {{-- Facturas CON IVA --}}
+        <div class="bg-white rounded-xl border border-sweetgo-pink-light p-5">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wide text-sweetgo-turquoise font-semibold">Facturas con IVA</p>
+                    <p class="text-xs text-gray-400">{{ $countConIvaMes }} factura(s) del mes</p>
+                </div>
+                <span class="inline-block px-2 py-0.5 rounded bg-sweetgo-turquoise-light text-sweetgo-turquoise text-[10px] font-bold uppercase">IVA</span>
+            </div>
+            <p class="mt-3 text-2xl font-bold text-gray-800">${{ number_format($totalConIvaMes, 0, ',', '.') }}</p>
+            <p class="mt-1 text-xs text-gray-500">
+                IVA cobrado: <span class="font-medium text-sweetgo-pink">${{ number_format($ivaCobradoMes, 0, ',', '.') }}</span>
+            </p>
+        </div>
+
+        {{-- Facturas SIN IVA --}}
+        <div class="bg-white rounded-xl border border-sweetgo-pink-light p-5">
+            <div class="flex items-start justify-between">
+                <div>
+                    <p class="text-[10px] uppercase tracking-wide text-gray-500 font-semibold">Facturas sin IVA</p>
+                    <p class="text-xs text-gray-400">{{ $countSinIvaMes }} factura(s) del mes</p>
+                </div>
+                <span class="inline-block px-2 py-0.5 rounded bg-gray-100 text-gray-500 text-[10px] font-bold uppercase">Excl. IVA</span>
+            </div>
+            <p class="mt-3 text-2xl font-bold text-gray-800">${{ number_format($totalSinIvaMes, 0, ',', '.') }}</p>
+            <p class="mt-1 text-xs text-gray-400">Base sin gravamen</p>
+        </div>
+
+        {{-- Facturación total del mes --}}
+        <div class="bg-gradient-to-br from-sweetgo-pink-light to-sweetgo-turquoise-light rounded-xl border border-sweetgo-pink-light p-5">
+            <div>
+                <p class="text-[10px] uppercase tracking-wide text-sweetgo-pink font-semibold">Total facturado</p>
+                <p class="text-xs text-gray-500">Aprobadas + pagadas</p>
+            </div>
+            <p class="mt-3 text-2xl font-bold text-sweetgo-pink">${{ number_format($totalConIvaMes + $totalSinIvaMes, 0, ',', '.') }}</p>
+            <div class="mt-2 flex gap-3 text-[10px] uppercase tracking-wide">
+                <span class="text-sweetgo-turquoise">{{ $countConIvaMes }} c/IVA</span>
+                <span class="text-gray-500">{{ $countSinIvaMes }} s/IVA</span>
+            </div>
+        </div>
+    </div>
+
     {{-- Segunda fila de métricas --}}
     <div class="grid grid-cols-2 sm:grid-cols-4 gap-5 mb-8">
         <div class="bg-white rounded-xl border border-sweetgo-pink-light p-4">

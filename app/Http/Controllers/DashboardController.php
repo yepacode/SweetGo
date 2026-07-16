@@ -19,7 +19,8 @@ class DashboardController extends Controller
         $inicioMes = Carbon::now()->startOfMonth();
 
         // Scope base según rol: vendedor solo ve lo suyo.
-        $ventasBase = Cotizacion::where('estado', 'aprobada')
+        // Se consideran "facturadas" las cotizaciones ya cerradas: aprobada o pagada.
+        $ventasBase = Cotizacion::whereIn('estado', ['aprobada', 'pagada'])
             ->when(! $esAdmin, fn ($q) => $q->where('user_id', $u->id));
         $enCursoBase = Cotizacion::whereIn('estado', ['borrador', 'enviada'])
             ->when(! $esAdmin, fn ($q) => $q->where('user_id', $u->id));
@@ -28,6 +29,17 @@ class DashboardController extends Controller
             ->when(! $esAdmin, fn ($q) => $q->where('user_id', $u->id));
 
         $ventasMes = (clone $ventasBase)->where('aprobada_at', '>=', $inicioMes)->sum('total');
+
+        // Facturación del mes desglosada por IVA / sin IVA
+        $facturadasMes = (clone $ventasBase)->where('aprobada_at', '>=', $inicioMes);
+        $facturasConIvaMes = (clone $facturadasMes)->where('con_iva', true);
+        $facturasSinIvaMes = (clone $facturadasMes)->where('con_iva', false);
+        $ivaCobradoMes = (float) (clone $facturasConIvaMes)->sum('iva_monto');
+        $totalConIvaMes = (float) $facturasConIvaMes->sum('total');
+        $totalSinIvaMes = (float) $facturasSinIvaMes->sum('total');
+        $countConIvaMes = (clone $facturadasMes)->where('con_iva', true)->count();
+        $countSinIvaMes = (clone $facturadasMes)->where('con_iva', false)->count();
+
         $cotizacionesEnCurso = $enCursoBase->count();
         $productosActivos = Producto::where('activo', true)->count();
         $stockBajo = Producto::whereColumn('stock_actual', '<=', 'stock_minimo')
@@ -79,7 +91,8 @@ class DashboardController extends Controller
         return view('dashboard', compact(
             'ventasMes', 'cotizacionesEnCurso', 'productosActivos', 'stockBajo',
             'clientesNuevos', 'garantiasAbiertas', 'masVendidos', 'productosStockBajo', 'ultimasCotizaciones',
-            'serie'
+            'serie',
+            'totalConIvaMes', 'totalSinIvaMes', 'ivaCobradoMes', 'countConIvaMes', 'countSinIvaMes'
         ));
     }
 }

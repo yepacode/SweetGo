@@ -14,7 +14,8 @@ class Cotizacion extends Model
 
     protected $fillable = [
         'numero', 'cliente_id', 'user_id', 'estado', 'fecha', 'validez',
-        'subtotal', 'descuento', 'total', 'notas', 'stock_descontado', 'aprobada_at',
+        'subtotal', 'descuento', 'con_iva', 'iva_porcentaje', 'iva_monto',
+        'total', 'notas', 'stock_descontado', 'aprobada_at',
     ];
 
     protected $casts = [
@@ -23,6 +24,9 @@ class Cotizacion extends Model
         'aprobada_at' => 'datetime',
         'subtotal' => 'decimal:2',
         'descuento' => 'decimal:2',
+        'con_iva' => 'boolean',
+        'iva_porcentaje' => 'decimal:2',
+        'iva_monto' => 'decimal:2',
         'total' => 'decimal:2',
         'stock_descontado' => 'boolean',
     ];
@@ -135,12 +139,19 @@ class Cotizacion extends Model
         return 'COT-' . str_pad((string) $n, 4, '0', STR_PAD_LEFT);
     }
 
-    /** Recalcula subtotal y total a partir de los items y el descuento (clamp a 0). */
+    /**
+     * Recalcula subtotal, IVA y total a partir de los items, el descuento y el flag con_iva.
+     * Fórmula: base = max(0, subtotal - descuento). IVA = base * (%/100) si con_iva. Total = base + IVA.
+     */
     public function recalcularTotales(): void
     {
         $subtotal = (float) $this->items()->sum('subtotal');
+        $base = max(0, $subtotal - (float) $this->descuento);
+        $ivaMonto = $this->con_iva ? round($base * ((float) $this->iva_porcentaje / 100), 2) : 0;
+
         $this->subtotal = $subtotal;
-        $this->total = max(0, $subtotal - (float) $this->descuento);
+        $this->iva_monto = $ivaMonto;
+        $this->total = $base + $ivaMonto;
         $this->save();
     }
 
