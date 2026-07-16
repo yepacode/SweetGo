@@ -88,6 +88,16 @@
                     @if ($cotizacion->descuento > 0)
                         <tr><td colspan="3" class="px-6 py-1.5 text-right text-gray-500">Descuento</td><td class="px-6 py-1.5 text-right text-red-500">−${{ number_format($cotizacion->descuento, 0, ',', '.') }}</td></tr>
                     @endif
+                    @if ($cotizacion->con_iva)
+                        <tr>
+                            <td colspan="3" class="px-6 py-1.5 text-right text-gray-500">
+                                IVA {{ rtrim(rtrim(number_format($cotizacion->iva_porcentaje, 2, '.', ''), '0'), '.') }}%
+                            </td>
+                            <td class="px-6 py-1.5 text-right text-gray-700">+${{ number_format($cotizacion->iva_monto, 0, ',', '.') }}</td>
+                        </tr>
+                    @else
+                        <tr><td colspan="4" class="px-6 py-1 text-right text-[10px] text-gray-400 uppercase tracking-wide">Sin IVA</td></tr>
+                    @endif
                     <tr class="text-base"><td colspan="3" class="px-6 py-3 text-right font-semibold text-gray-700">Total</td><td class="px-6 py-3 text-right font-bold text-sweetgo-pink">${{ number_format($cotizacion->total, 0, ',', '.') }}</td></tr>
                 </tfoot>
             </table>
@@ -253,4 +263,246 @@
             </div>
         @endif
     </div>
+
+    {{-- ═══════════════════════════ ENVÍO ═══════════════════════════ --}}
+    @if ($cotizacion->estado === 'pagada')
+        @php
+            $envio = $cotizacion->envio;
+            $zonas = \App\Models\ZonaEnvio::where('activo', true)->orderBy('nombre')->get();
+            $sucursalesCliente = $cotizacion->cliente?->sucursales ?? collect();
+            $zonasJs = $zonas->mapWithKeys(fn ($z) => [$z->id => [
+                'costo_base' => (float) $z->costo_base,
+                'costo_kg_adicional' => (float) $z->costo_kg_adicional,
+                'peso_base_kg' => (float) $z->peso_base_kg,
+                'peso_maximo_kg' => $z->peso_maximo_kg ? (float) $z->peso_maximo_kg : null,
+            ]]);
+        @endphp
+
+        <div class="mt-6 bg-white rounded-xl border border-sweetgo-pink-light overflow-hidden"
+             x-data="envioForm({{ Illuminate\Support\Js::from($zonasJs) }}, {{ Illuminate\Support\Js::from([
+                'zona_envio_id' => $envio?->zona_envio_id,
+                'peso_kg' => $envio?->peso_kg ? (float) $envio->peso_kg : null,
+                'costo' => $envio ? (float) $envio->costo : null,
+             ]) }})">
+            <div class="px-6 py-4 border-b border-sweetgo-pink-light bg-sweetgo-turquoise-light/40 flex items-center justify-between">
+                <div>
+                    <h3 class="font-semibold text-gray-800">Envío</h3>
+                    @if ($envio)
+                        <p class="text-xs text-gray-500 mt-0.5">
+                            Costo: <span class="font-medium text-gray-700">${{ number_format($envio->costo, 0, ',', '.') }}</span>
+                            · Peso: {{ $envio->peso_kg ? rtrim(rtrim(number_format($envio->peso_kg, 3, '.', ''), '0'), '.') . ' kg' : '—' }}
+                        </p>
+                    @else
+                        <p class="text-xs text-gray-500 mt-0.5">Configura el envío de esta cotización.</p>
+                    @endif
+                </div>
+                @if ($envio)
+                    <span class="inline-block px-2 py-0.5 rounded-full text-xs font-medium {{ $envio->estadoBadge() }}">{{ $envio->estadoLabel() }}</span>
+                @endif
+            </div>
+
+            {{-- Datos actuales del envío (si ya existe) --}}
+            @if ($envio && $envio->estado !== 'pendiente')
+                <div class="px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm border-b border-gray-100">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wide text-gray-400">Dirección</p>
+                        <p class="text-gray-700">{{ $envio->direccion ?? '—' }}{{ $envio->ciudad ? ', ' . $envio->ciudad : '' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wide text-gray-400">Contacto</p>
+                        <p class="text-gray-700">{{ $envio->contacto ?? '—' }}{{ $envio->telefono ? ' · ' . $envio->telefono : '' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wide text-gray-400">Transportador · Guía</p>
+                        <p class="text-gray-700">{{ $envio->transportador ?? '—' }}{{ $envio->guia_numero ? ' · #' . $envio->guia_numero : '' }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wide text-gray-400">Fecha estimada</p>
+                        <p class="text-gray-700">{{ $envio->fecha_estimada?->format('d/m/Y') ?? '—' }}</p>
+                    </div>
+                    @if ($envio->entregado_at)
+                        <div>
+                            <p class="text-[10px] uppercase tracking-wide text-gray-400">Entregado</p>
+                            <p class="text-green-700">{{ $envio->entregado_at->format('d/m/Y H:i') }}</p>
+                        </div>
+                    @endif
+                </div>
+            @endif
+
+            {{-- Form: configurar o actualizar envío --}}
+            @if (! $envio || $envio->estado === 'pendiente')
+                <form method="POST" action="{{ route('envio.store', $cotizacion) }}"
+                      class="px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    @csrf
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Zona</label>
+                        <select name="zona_envio_id" x-model="zonaId" @change="recalcular()"
+                                class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                            <option value="">— Sin zona (costo manual) —</option>
+                            @foreach ($zonas as $z)
+                                <option value="{{ $z->id }}" @selected($envio?->zona_envio_id == $z->id)>{{ $z->nombre }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Peso (kg)</label>
+                        <input type="number" name="peso_kg" x-model.number="pesoKg" @input="recalcular()"
+                               min="0" step="0.001"
+                               class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">
+                            Costo (COP) <span x-show="autoCalculado" x-cloak class="text-sweetgo-turquoise text-[9px]">auto</span>
+                        </label>
+                        <input type="number" name="costo" x-model.number="costo" min="0" step="1"
+                               class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                        <p x-show="mensajeZona" x-cloak class="text-[10px] text-red-500 mt-1" x-text="mensajeZona"></p>
+                    </div>
+
+                    <div class="sm:col-span-3 border-t border-gray-100 pt-3">
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500 mb-2 font-medium">Dirección de entrega</p>
+                        @if ($sucursalesCliente->count())
+                            <div class="mb-3">
+                                <label class="block text-[10px] text-gray-500 mb-1">Copiar de sucursal del cliente</label>
+                                <select @change="copiarSucursal($event.target)"
+                                        class="w-full sm:w-1/2 rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                                    <option value="">— Elegir sucursal —</option>
+                                    @foreach ($sucursalesCliente as $s)
+                                        <option value="{{ $loop->index }}"
+                                                data-direccion="{{ $s->direccion }}"
+                                                data-ciudad="{{ $s->ciudad }}"
+                                                data-contacto="{{ $s->contacto }}"
+                                                data-telefono="{{ $s->telefono }}">{{ $s->nombre }}{{ $s->es_principal ? ' (principal)' : '' }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                        @endif
+                    </div>
+
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Dirección</label>
+                        <input type="text" name="direccion" value="{{ old('direccion', $envio?->direccion ?? $cotizacion->cliente?->direccion) }}"
+                               class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Ciudad</label>
+                        <input type="text" name="ciudad" value="{{ old('ciudad', $envio?->ciudad ?? $cotizacion->cliente?->ciudad) }}"
+                               class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Contacto</label>
+                        <input type="text" name="contacto" value="{{ old('contacto', $envio?->contacto ?? $cotizacion->cliente?->nombre) }}"
+                               class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Teléfono</label>
+                        <input type="text" name="telefono" value="{{ old('telefono', $envio?->telefono ?? $cotizacion->cliente?->telefono) }}"
+                               class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Fecha estimada</label>
+                        <input type="date" name="fecha_estimada" value="{{ old('fecha_estimada', $envio?->fecha_estimada?->toDateString()) }}"
+                               class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                    </div>
+                    <div class="sm:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Transportador</label>
+                            <input type="text" name="transportador" value="{{ old('transportador', $envio?->transportador) }}"
+                                   placeholder="Servientrega, TCC, propio…"
+                                   class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Número de guía</label>
+                            <input type="text" name="guia_numero" value="{{ old('guia_numero', $envio?->guia_numero) }}"
+                                   class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                        </div>
+                    </div>
+                    <div class="sm:col-span-3">
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Notas</label>
+                        <textarea name="notas" rows="1"
+                                  class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">{{ old('notas', $envio?->notas) }}</textarea>
+                    </div>
+                    <div class="sm:col-span-3 flex justify-end">
+                        <button class="px-5 py-2 rounded-lg bg-sweetgo-pink text-white text-sm font-medium hover:opacity-90">
+                            {{ $envio ? 'Actualizar envío' : 'Configurar envío' }}
+                        </button>
+                    </div>
+                </form>
+            @endif
+
+            {{-- Cambio de estado (solo admin) --}}
+            @if ($envio && auth()->user()->hasRole('admin'))
+                <div class="px-6 py-4 border-t border-gray-100 bg-gray-50">
+                    <p class="text-[10px] uppercase tracking-wide text-gray-500 mb-2 font-medium">Estado del envío</p>
+                    <form method="POST" action="{{ route('envio.estado', [$cotizacion, $envio]) }}" class="flex flex-wrap items-end gap-3">
+                        @csrf @method('PATCH')
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Estado</label>
+                            <select name="estado" required
+                                    class="rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                                <option value="pendiente" @selected($envio->estado === 'pendiente')>Pendiente</option>
+                                <option value="en_ruta" @selected($envio->estado === 'en_ruta')>En ruta</option>
+                                <option value="entregado" @selected($envio->estado === 'entregado')>Entregado</option>
+                                <option value="cancelado" @selected($envio->estado === 'cancelado')>Cancelado</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Transportador</label>
+                            <input type="text" name="transportador" value="{{ $envio->transportador }}"
+                                   class="rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] text-gray-500 mb-1">Guía</label>
+                            <input type="text" name="guia_numero" value="{{ $envio->guia_numero }}"
+                                   class="rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                        </div>
+                        <button class="px-4 py-2 rounded-lg bg-sweetgo-turquoise text-white text-sm hover:opacity-90">Actualizar estado</button>
+                    </form>
+                </div>
+            @endif
+        </div>
+
+        <script>
+            function envioForm(zonas, inicial) {
+                return {
+                    zonas,
+                    zonaId: inicial.zona_envio_id ?? '',
+                    pesoKg: inicial.peso_kg ?? null,
+                    costo: inicial.costo ?? null,
+                    autoCalculado: false,
+                    mensajeZona: '',
+
+                    recalcular() {
+                        this.mensajeZona = '';
+                        if (!this.zonaId || !this.pesoKg || this.pesoKg <= 0) {
+                            this.autoCalculado = false;
+                            return;
+                        }
+                        const z = this.zonas[this.zonaId];
+                        if (!z) return;
+                        if (z.peso_maximo_kg && this.pesoKg > z.peso_maximo_kg) {
+                            this.mensajeZona = 'El peso excede el máximo de la zona (' + z.peso_maximo_kg + ' kg). Costo manual.';
+                            this.autoCalculado = false;
+                            return;
+                        }
+                        const extra = Math.max(0, this.pesoKg - z.peso_base_kg);
+                        this.costo = Math.round(z.costo_base + extra * z.costo_kg_adicional);
+                        this.autoCalculado = true;
+                    },
+
+                    copiarSucursal(select) {
+                        const opt = select.selectedOptions[0];
+                        if (!opt || opt.value === '') return;
+                        const form = select.closest('form');
+                        ['direccion','ciudad','contacto','telefono'].forEach(k => {
+                            const val = opt.dataset[k];
+                            const input = form.querySelector(`input[name="${k}"]`);
+                            if (input && val) input.value = val;
+                        });
+                        select.value = '';
+                    },
+                }
+            }
+        </script>
+    @endif
 @endsection
