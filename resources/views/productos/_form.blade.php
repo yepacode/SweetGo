@@ -59,6 +59,13 @@
                 <input type="number" name="stock_minimo" step="1" min="0" value="{{ old('stock_minimo', $p?->stock_minimo ?? 5) }}"
                        class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
             </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-600 mb-1">Stock máximo</label>
+                <input type="number" name="stock_maximo" step="1" min="0" value="{{ old('stock_maximo', $p?->stock_maximo) }}"
+                       placeholder="Sin límite"
+                       class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                <p class="mt-1 text-[11px] text-gray-400">Cantidad máxima permitida por cotización.</p>
+            </div>
         </div>
 
         {{-- Precios por lista --}}

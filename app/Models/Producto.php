@@ -17,13 +17,14 @@ class Producto extends Model
 
     protected $fillable = [
         'categoria_id', 'nombre', 'referencia', 'descripcion',
-        'precio', 'imagen', 'stock_actual', 'stock_minimo', 'activo',
+        'precio', 'imagen', 'stock_actual', 'stock_minimo', 'stock_maximo', 'activo',
     ];
 
     protected $casts = [
         'precio' => 'decimal:2',
         'stock_actual' => 'integer',
         'stock_minimo' => 'integer',
+        'stock_maximo' => 'integer',
         'activo' => 'boolean',
     ];
 

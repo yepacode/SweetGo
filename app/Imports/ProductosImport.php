@@ -3,22 +3,37 @@
 namespace App\Imports;
 
 use App\Models\Categoria;
+use App\Models\ListaPrecio;
 use App\Models\Producto;
 use Illuminate\Support\Str;
+use Maatwebsite\Excel\Concerns\HeadingRowFormatter;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
 /**
  * Importa productos desde Excel/CSV.
- * Columnas esperadas (fila de encabezado): nombre, referencia, categoria, precio, stock, stock_minimo
+ * Columnas fijas: nombre, referencia, categoria, precio, stock, stock_minimo
+ * Columnas dinámicas: "precio_<slug_lista>" para cada lista de precios activa
+ *   (ej. precio_normal_publico, precio_mayorista, precio_super_mayorista)
  * - Coincidencia por «nombre»: crea o actualiza.
  * - Si viene stock en una fila nueva, registra un movimiento de entrada (stock inicial).
+ * - Los precios por lista se guardan en precio_productos vía updateOrCreate.
  */
 class ProductosImport implements ToCollection, WithHeadingRow
 {
     public int $creados = 0;
     public int $actualizados = 0;
     public int $omitidos = 0;
+
+    /** Mapa slug_lista => lista_id. Se llena al construir para evitar N+1 en el loop. */
+    private array $mapaListas = [];
+
+    public function __construct()
+    {
+        foreach (ListaPrecio::where('activo', true)->get() as $l) {
+            $this->mapaListas['precio_' . Str::slug($l->nombre, '_')] = $l->id;
+        }
+    }
 
     /**
      * Parsea precios COP: acepta "8500", "8.500", "8500.00", "8.500,00", "$ 8,500.00", etc.
@@ -85,6 +100,8 @@ class ProductosImport implements ToCollection, WithHeadingRow
 
             $precio = $this->parsearPrecio($row['precio'] ?? 0);
             $stockMinimo = (int) ($row['stock_minimo'] ?? 0); // 0 como en el form
+            $stockMaximo = isset($row['stock_maximo']) && $row['stock_maximo'] !== '' && $row['stock_maximo'] !== null
+                ? (int) $row['stock_maximo'] : null;
             $stock = (int) ($row['stock'] ?? 0);
 
             $existente = Producto::where('nombre', $nombre)->first();
@@ -95,7 +112,9 @@ class ProductosImport implements ToCollection, WithHeadingRow
                     'categoria_id' => $categoriaId ?? $existente->categoria_id,
                     'precio' => $precio ?: $existente->precio,
                     'stock_minimo' => $stockMinimo,
+                    'stock_maximo' => $stockMaximo ?? $existente->stock_maximo,
                 ]);
+                $producto = $existente;
                 $this->actualizados++;
             } else {
                 $producto = Producto::create([
@@ -105,6 +124,7 @@ class ProductosImport implements ToCollection, WithHeadingRow
                     'precio' => $precio,
                     'stock_actual' => 0,
                     'stock_minimo' => $stockMinimo,
+                    'stock_maximo' => $stockMaximo,
                     'activo' => true,
                 ]);
 
@@ -112,6 +132,20 @@ class ProductosImport implements ToCollection, WithHeadingRow
                     $producto->registrarMovimiento('entrada', $stock, 'Importación masiva');
                 }
                 $this->creados++;
+            }
+
+            // Precios por lista (columnas dinámicas "precio_<slug>").
+            foreach ($this->mapaListas as $col => $listaId) {
+                if (! isset($row[$col]) || $row[$col] === '' || $row[$col] === null) {
+                    continue;
+                }
+                $precioLista = $this->parsearPrecio($row[$col]);
+                if ($precioLista > 0) {
+                    $producto->preciosProducto()->updateOrCreate(
+                        ['lista_precio_id' => $listaId],
+                        ['precio' => $precioLista]
+                    );
+                }
             }
         }
     }

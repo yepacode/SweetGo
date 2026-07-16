@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\PlantillaProductosExport;
 use App\Imports\ProductosImport;
 use App\Models\Categoria;
 use App\Models\ListaPrecio;
@@ -167,23 +168,10 @@ class ProductoController extends Controller
         );
     }
 
-    /** Descarga una plantilla CSV para la importación. */
+    /** Descarga la plantilla XLSX (formato nativo Excel con branding Sweet Go). */
     public function plantilla()
     {
-        $headers = ['nombre', 'referencia', 'categoria', 'precio', 'stock', 'stock_minimo'];
-        $ejemplo = ['Cepillo Alpargata', '4001', 'Cepillos', '8500', '10', '5'];
-
-        $callback = function () use ($headers, $ejemplo) {
-            $out = fopen('php://output', 'w');
-            fputs($out, "\xEF\xBB\xBF"); // BOM para acentos en Excel
-            fputcsv($out, $headers);
-            fputcsv($out, $ejemplo);
-            fclose($out);
-        };
-
-        return response()->streamDownload($callback, 'plantilla_productos_sweetgo.csv', [
-            'Content-Type' => 'text/csv; charset=UTF-8',
-        ]);
+        return Excel::download(new PlantillaProductosExport(), 'plantilla_productos_sweetgo.xlsx');
     }
 
     private function validated(Request $request): array
@@ -196,6 +184,7 @@ class ProductoController extends Controller
             'precio' => ['required', 'numeric', 'min:0'],
             'stock_actual' => ['nullable', 'integer', 'min:0'],
             'stock_minimo' => ['nullable', 'integer', 'min:0'],
+            'stock_maximo' => ['nullable', 'integer', 'min:0', 'gte:stock_minimo'],
             'imagen' => ['nullable', 'image', 'max:4096'],
             'activo' => ['nullable', 'boolean'],
             'precios_lista' => ['nullable', 'array'],
@@ -204,6 +193,7 @@ class ProductoController extends Controller
             'categoria_id' => 'categoría',
             'stock_actual' => 'stock inicial',
             'stock_minimo' => 'stock mínimo',
+            'stock_maximo' => 'stock máximo',
             'precios_lista.*' => 'precio por lista',
         ]);
     }
