@@ -31,22 +31,23 @@
             @php
                 $esAdmin = auth()->user()?->hasRole('admin');
 
+                // Módulos base (vendedor solo ve Dashboard, Clientes, Cotizaciones, Catálogo).
                 $modules = [
                     ['label' => 'Dashboard',    'route' => 'dashboard',        'icon' => 'M3 12l9-9 9 9M5 10v10a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V10'],
-                    ['label' => 'Productos',     'route' => 'productos.index',  'icon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'],
-                    ['label' => 'Inventario',    'route' => 'stock.index',      'icon' => 'M4 7v10a2 2 0 002 2h12a2 2 0 002-2V7M4 7l2-3h12l2 3M9 12h6'],
                     ['label' => 'Clientes',      'route' => 'clientes.index',   'icon' => 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z'],
                     ['label' => 'Cotizaciones',  'route' => 'cotizaciones.index','icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
                     ['label' => 'Catálogo',      'route' => 'catalogo.index',   'icon' => 'M12 6.5A2.5 2.5 0 0114.5 4H21v14h-6.5a2.5 2.5 0 00-2.5 2.5M12 6.5A2.5 2.5 0 009.5 4H3v14h6.5a2.5 2.5 0 012.5 2.5M12 6.5v14'],
-                    ['label' => 'Garantías',     'route' => 'garantias.index',  'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'],
                 ];
 
                 if ($esAdmin) {
-                    // Módulos solo para administrador
-                    $modules[] = ['label' => 'Links',     'route' => 'links.index',      'icon' => 'M13.828 10.172a4 4 0 015.656 5.656l-3 3a4 4 0 01-5.656-5.656M10.172 13.828a4 4 0 01-5.656-5.656l3-3a4 4 0 015.656 5.656'];
-                    $modules[] = ['label' => 'Usuarios',  'route' => 'usuarios.index',   'icon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'];
-                    $modules[] = ['label' => 'Reportes',  'route' => 'reportes.index',   'icon' => 'M9 17v-2a2 2 0 00-2-2H5a2 2 0 00-2 2v2m6 0h6m-6 0v2m6-2v2m0-2a2 2 0 012-2h2a2 2 0 012 2v0M9 5a2 2 0 012-2h2a2 2 0 012 2v8H9V5z'];
-                    $modules[] = ['label' => 'Bitácora',  'route' => 'bitacora.index',   'icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'];
+                    // Módulos solo para administrador: inventario, productos, garantías, links, usuarios, reportes, bitácora.
+                    $modules[] = ['label' => 'Productos',  'route' => 'productos.index',  'icon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'];
+                    $modules[] = ['label' => 'Inventario', 'route' => 'stock.index',      'icon' => 'M4 7v10a2 2 0 002 2h12a2 2 0 002-2V7M4 7l2-3h12l2 3M9 12h6'];
+                    $modules[] = ['label' => 'Garantías',  'route' => 'garantias.index',  'icon' => 'M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z'];
+                    $modules[] = ['label' => 'Links',      'route' => 'links.index',      'icon' => 'M13.828 10.172a4 4 0 015.656 5.656l-3 3a4 4 0 01-5.656-5.656M10.172 13.828a4 4 0 01-5.656-5.656l3-3a4 4 0 015.656 5.656'];
+                    $modules[] = ['label' => 'Usuarios',   'route' => 'usuarios.index',   'icon' => 'M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z'];
+                    $modules[] = ['label' => 'Reportes',   'route' => 'reportes.index',   'icon' => 'M9 17v-2a2 2 0 00-2-2H5a2 2 0 00-2 2v2m6 0h6m-6 0v2m6-2v2m0-2a2 2 0 012-2h2a2 2 0 012 2v0M9 5a2 2 0 012-2h2a2 2 0 012 2v8H9V5z'];
+                    $modules[] = ['label' => 'Bitácora',   'route' => 'bitacora.index',   'icon' => 'M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4'];
                 }
             @endphp
 

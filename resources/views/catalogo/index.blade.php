@@ -22,6 +22,7 @@
     <div x-data="cotizador({
             clientes: {{ Illuminate\Support\Js::from($clientes) }},
             productos: {{ Illuminate\Support\Js::from($productos) }},
+            listasPrecios: {{ Illuminate\Support\Js::from($listasPrecios) }},
             csrf: '{{ csrf_token() }}',
             postUrl: '{{ route('catalogo.store') }}',
             esAdmin: {{ $esAdmin ? 'true' : 'false' }},
@@ -211,8 +212,9 @@
                 <template x-for="p in productosFiltrados()" :key="p.id">
                     <div class="group bg-white rounded-xl border border-sweetgo-pink-light overflow-hidden flex flex-col hover:shadow-md hover:border-sweetgo-pink transition select-none"
                          :class="p.stock <= 0 && 'opacity-60'">
-                        {{-- Imagen (se oculta cuando el carrito está abierto para vista compacta) --}}
-                        <div x-show="!carritoAbierto" class="aspect-[4/3] bg-white flex items-center justify-center overflow-hidden">
+                        {{-- Imagen clickeable → abre modal de detalle --}}
+                        <div x-show="!carritoAbierto" @click="verDetalle(p)"
+                             class="aspect-[4/3] bg-white flex items-center justify-center overflow-hidden cursor-zoom-in">
                             <template x-if="p.imagen">
                                 <img :src="p.imagen" :alt="p.nombre" class="w-full h-full object-cover">
                             </template>
@@ -226,7 +228,8 @@
                              :class="!carritoAbierto && 'border-t border-gray-50'">
                             <p class="text-[9px] text-sweetgo-turquoise uppercase tracking-wide font-medium truncate"
                                x-text="p.categoria || 'Sin categoría'"></p>
-                            <h4 class="text-[12px] font-semibold text-gray-800 leading-tight mt-0.5 line-clamp-2"
+                            <h4 @click="verDetalle(p)"
+                                class="text-[12px] font-semibold text-gray-800 leading-tight mt-0.5 line-clamp-2 cursor-pointer hover:text-sweetgo-pink transition"
                                 x-text="p.nombre"></h4>
                             <p class="text-[10px] text-sweetgo-turquoise font-medium mt-0.5" x-show="p.referencia"
                                x-text="'Ref ' + p.referencia"></p>
@@ -243,17 +246,24 @@
                                       class="inline-flex items-center text-[9px] font-medium px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 border border-gray-200">Agotado</span>
                             </div>
 
-                            {{-- Botón "+ Agregar" (siempre visible) --}}
-                            <button type="button" @click.stop="agregar(p)"
-                                    :disabled="p.stock <= 0"
-                                    class="mt-2 w-full px-2 py-1.5 rounded-lg bg-sweetgo-pink text-white text-[11px] font-medium hover:opacity-90 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1">
-                                <template x-if="!enCarrito(p.id)">
-                                    <span>+ Agregar</span>
-                                </template>
-                                <template x-if="enCarrito(p.id)">
-                                    <span>✓ En carrito (<span x-text="cantidadEn(p.id)"></span>)</span>
-                                </template>
-                            </button>
+                            {{-- Botones acción (siempre visibles) --}}
+                            <div class="mt-2 flex gap-1.5">
+                                <button type="button" @click.stop="verDetalle(p)"
+                                        class="shrink-0 px-2 py-1.5 rounded-lg border border-sweetgo-turquoise text-sweetgo-turquoise text-[11px] font-medium hover:bg-sweetgo-turquoise-light inline-flex items-center gap-1"
+                                        title="Ver detalle">
+                                    <svg class="w-3.5 h-3.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                                </button>
+                                <button type="button" @click.stop="agregar(p)"
+                                        :disabled="p.stock <= 0"
+                                        class="flex-1 px-2 py-1.5 rounded-lg bg-sweetgo-pink text-white text-[11px] font-medium hover:opacity-90 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed inline-flex items-center justify-center gap-1">
+                                    <template x-if="!enCarrito(p.id)">
+                                        <span>+ Agregar</span>
+                                    </template>
+                                    <template x-if="enCarrito(p.id)">
+                                        <span>✓ (<span x-text="cantidadEn(p.id)"></span>)</span>
+                                    </template>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </template>
@@ -346,39 +356,23 @@
                     </template>
                 </div>
 
-                {{-- Comentarios, fecha, validez, descuento --}}
+                {{-- Comentarios + validez --}}
                 <div class="px-5 py-3 border-t border-sweetgo-pink-light bg-white space-y-3">
                     <div>
                         <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Comentarios del cliente</label>
                         <textarea x-model="notas" rows="2" placeholder="Observaciones, condiciones, etc."
                                   class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm"></textarea>
                     </div>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Fecha</label>
-                            <input type="date" x-model="fecha"
-                                   class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-xs">
-                        </div>
-                        <div>
-                            <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Válida hasta</label>
-                            <input type="date" x-model="validez"
-                                   class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-xs">
-                        </div>
-                    </div>
                     <div>
-                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Descuento (COP)</label>
-                        <input type="number" x-model.number="descuento" min="0" step="1"
-                               class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm">
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Válida hasta</label>
+                        <input type="date" x-model="validez"
+                               class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-xs">
                     </div>
 
                     <div class="border-t border-gray-100 pt-3 space-y-1 text-sm">
                         <div class="flex justify-between text-gray-500">
                             <span>Subtotal</span>
                             <span x-text="money(subtotal())"></span>
-                        </div>
-                        <div class="flex justify-between text-gray-500" x-show="descuento > 0">
-                            <span>Descuento</span>
-                            <span x-text="'-' + money(descuento)"></span>
                         </div>
                         <div class="flex justify-between font-bold text-sweetgo-pink text-base">
                             <span>Total</span>
@@ -395,6 +389,110 @@
                 </div>
             </aside>
         </div>
+
+        {{-- MODAL DETALLE DE PRODUCTO --}}
+        <div x-show="productoDetalle" x-cloak
+             @click="productoDetalle = null"
+             @keydown.escape.window="productoDetalle = null"
+             class="fixed inset-0 z-[60] bg-gray-900/70 backdrop-blur-sm flex items-center justify-center p-4"
+             :class="productoDetalle ? 'opacity-100' : 'opacity-0 pointer-events-none'">
+            <div @click.stop x-show="productoDetalle"
+                 class="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col"
+                 :class="productoDetalle ? 'scale-100' : 'scale-95'"
+                 style="transition: transform .2s">
+                <template x-if="productoDetalle">
+                    <div class="flex flex-col overflow-hidden">
+                        {{-- Header --}}
+                        <div class="px-5 py-3 border-b border-sweetgo-pink-light bg-sweetgo-pink-light/40 flex items-center justify-between shrink-0">
+                            <div class="flex items-center gap-3 min-w-0">
+                                <p class="text-[10px] uppercase tracking-wide text-sweetgo-turquoise font-medium shrink-0"
+                                   x-text="productoDetalle.categoria || 'Sin categoría'"></p>
+                                <span class="text-gray-300">·</span>
+                                <p class="text-xs text-gray-500 truncate" x-text="productoDetalle.referencia ? 'Ref ' + productoDetalle.referencia : ''"></p>
+                            </div>
+                            <button type="button" @click="productoDetalle = null"
+                                    class="w-9 h-9 rounded-lg flex items-center justify-center text-gray-500 hover:text-white hover:bg-sweetgo-pink transition [&_*]:pointer-events-none"
+                                    aria-label="Cerrar detalle">
+                                <svg pointer-events="none" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path pointer-events="none" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12"/></svg>
+                            </button>
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-0 overflow-y-auto">
+                            {{-- Imagen --}}
+                            <div class="aspect-square bg-sweetgo-pink-light/30 flex items-center justify-center overflow-hidden">
+                                <template x-if="productoDetalle.imagen">
+                                    <img :src="productoDetalle.imagen" :alt="productoDetalle.nombre" class="w-full h-full object-cover">
+                                </template>
+                                <template x-if="!productoDetalle.imagen">
+                                    <span class="text-6xl text-sweetgo-pink">&#10022;</span>
+                                </template>
+                            </div>
+
+                            {{-- Info --}}
+                            <div class="p-5 flex flex-col gap-3">
+                                <h3 class="font-serif text-xl font-semibold text-gray-800 leading-tight" x-text="productoDetalle.nombre"></h3>
+
+                                <div class="flex items-center gap-2">
+                                    <span x-show="productoDetalle.stock > 0"
+                                          class="inline-flex items-center gap-1 text-xs font-medium px-2 py-1 rounded bg-sweetgo-turquoise-light text-sweetgo-turquoise border border-sweetgo-turquoise/40">
+                                        <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>
+                                        <span x-text="productoDetalle.stock + ' disponibles'"></span>
+                                    </span>
+                                    <span x-show="productoDetalle.stock <= 0"
+                                          class="inline-flex items-center text-xs font-medium px-2 py-1 rounded bg-gray-100 text-gray-500 border border-gray-200">Agotado</span>
+                                    <span x-show="productoDetalle.stock_maximo" x-cloak
+                                          class="text-[10px] text-gray-400"
+                                          x-text="'· Máx por cotización: ' + productoDetalle.stock_maximo"></span>
+                                </div>
+
+                                <p x-show="productoDetalle.descripcion" x-cloak
+                                   class="text-sm text-gray-600 whitespace-pre-line" x-text="productoDetalle.descripcion"></p>
+
+                                {{-- Precio activo destacado (según cliente) --}}
+                                <div class="rounded-lg bg-sweetgo-pink-light/60 border border-sweetgo-pink-light px-4 py-3">
+                                    <p class="text-[10px] uppercase tracking-wide text-sweetgo-pink font-medium"
+                                       x-text="'Precio · ' + (clienteSel?.lista_nombre || 'Lista predeterminada')"></p>
+                                    <p class="text-2xl font-bold text-sweetgo-pink" x-text="money(precioEn(productoDetalle))"></p>
+                                </div>
+
+                                {{-- Tabla precios por lista --}}
+                                <div x-show="listasPrecios.length > 1" x-cloak class="rounded-lg border border-gray-100 overflow-hidden">
+                                    <div class="px-3 py-2 bg-gray-50 text-[10px] uppercase tracking-wide text-gray-500 font-medium">Precios por lista</div>
+                                    <table class="w-full text-sm">
+                                        <tbody>
+                                            <template x-for="lp in listasPrecios" :key="lp.id">
+                                                <tr class="border-t border-gray-100">
+                                                    <td class="px-3 py-2 text-gray-600 flex items-center gap-1">
+                                                        <span x-text="lp.nombre"></span>
+                                                        <span x-show="lp.es_publica" x-cloak class="text-[9px] uppercase bg-sweetgo-turquoise-light text-sweetgo-turquoise px-1 py-0.5 rounded">Pública</span>
+                                                        <span x-show="lp.es_predeterminada" x-cloak class="text-[9px] uppercase bg-sweetgo-pink-light text-sweetgo-pink px-1 py-0.5 rounded">Predet.</span>
+                                                    </td>
+                                                    <td class="px-3 py-2 text-right font-medium"
+                                                        :class="(clienteSel?.lista_precio_id === lp.id) ? 'text-sweetgo-pink font-bold' : 'text-gray-700'"
+                                                        x-text="money(productoDetalle.precios[lp.id] ?? productoDetalle.precio_base)"></td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+
+                        {{-- Footer con acción --}}
+                        <div class="px-5 py-3 border-t border-sweetgo-pink-light bg-white flex items-center gap-2 shrink-0">
+                            <button type="button" @click="productoDetalle = null"
+                                    class="px-4 py-2 rounded-lg border border-gray-200 text-gray-500 text-sm hover:bg-gray-50">Cerrar</button>
+                            <button type="button" @click="agregar(productoDetalle); productoDetalle = null"
+                                    :disabled="productoDetalle.stock <= 0"
+                                    class="flex-1 inline-flex items-center justify-center gap-2 px-4 py-2 rounded-lg bg-sweetgo-pink text-white text-sm font-semibold hover:opacity-90 disabled:bg-gray-200 disabled:text-gray-400 disabled:cursor-not-allowed">
+                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+                                <span x-text="enCarrito(productoDetalle.id) ? 'Sumar otra unidad al carrito' : 'Agregar al carrito'"></span>
+                            </button>
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -405,12 +503,24 @@
             return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         }
 
-        function cotizador({ clientes, productos, csrf, postUrl, esAdmin }) {
+        function cotizador({ clientes, productos, listasPrecios, csrf, postUrl, esAdmin }) {
             return {
-                clientes, productos, csrf, postUrl,
-                puedeEditarPrecio: !!esAdmin,   // solo admin puede modificar precio en el carrito
+                clientes, productos, listasPrecios, csrf, postUrl,
+                puedeEditarPrecio: !!esAdmin,
+                productoDetalle: null,
                 paso: 1,
                 clienteSel: null,
+
+                // Al montar: si viene ?cliente=X en la URL, saltar al paso 2 con ese cliente.
+                init() {
+                    const params = new URLSearchParams(window.location.search);
+                    const cid = parseInt(params.get('cliente'), 10);
+                    if (cid) {
+                        const c = this.clientes.find(x => x.id === cid);
+                        if (c) this.elegirCliente(c);
+                    }
+                },
+
                 buscarCliente: '',
                 filtroLista: null,       // ahora guarda lista_precio_id (no nombre)
                 filtroCiudad: null,
@@ -536,6 +646,10 @@
 
                 enCarrito(id) { return this.carrito.some(i => i.producto_id === id); },
                 cantidadEn(id) { return this.carrito.find(i => i.producto_id === id)?.cantidad || 0; },
+
+                verDetalle(p) {
+                    this.productoDetalle = p;
+                },
 
                 agregar(p) {
                     const existente = this.carrito.find(i => i.producto_id === p.id);

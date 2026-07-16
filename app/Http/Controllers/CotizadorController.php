@@ -56,18 +56,24 @@ class CotizadorController extends Controller
                 'id' => $p->id,
                 'nombre' => $p->nombre,
                 'referencia' => $p->referencia,
+                'descripcion' => $p->descripcion,
                 'precio_base' => (float) $p->precio,
                 'categoria' => $p->categoria?->nombre,
                 'categoria_id' => $p->categoria_id,
                 'imagen' => $p->imagen ? Storage::url($p->imagen) : null,
                 'stock' => (int) $p->stock_actual,
+                'stock_minimo' => (int) $p->stock_minimo,
+                'stock_maximo' => $p->stock_maximo,
                 'precios' => $p->preciosProducto->mapWithKeys(fn ($pp) => [(int) $pp->lista_precio_id => (float) $pp->precio]),
             ])->values();
 
         $categorias = Categoria::orderBy('nombre')->get(['id', 'nombre']);
+        $listasPrecios = ListaPrecio::where('activo', true)
+            ->orderByDesc('es_publica')->orderByDesc('es_predeterminada')->orderBy('nombre')
+            ->get(['id', 'nombre', 'es_publica', 'es_predeterminada']);
         $esAdmin = $u->hasRole('admin');
 
-        return view('catalogo.index', compact('clientes', 'productos', 'categorias', 'esAdmin'));
+        return view('catalogo.index', compact('clientes', 'productos', 'categorias', 'listasPrecios', 'esAdmin'));
     }
 
     public function store(Request $request)
