@@ -75,11 +75,13 @@ class CotizacionController extends Controller
         return view('cotizaciones.index', compact('cotizaciones'));
     }
 
-    public function create()
+    public function create(Request $request)
     {
-        $itemsIniciales = old('items', []);
-
-        return view('cotizaciones.create', $this->datosFormulario() + compact('itemsIniciales'));
+        // El único punto de creación de cotizaciones ahora es el catálogo interactivo (tarjetas,
+        // modal de detalle, carrito lateral). Si venía un cliente preseleccionado, lo llevamos.
+        return redirect()->route('catalogo.index', array_filter([
+            'cliente' => $request->query('cliente'),
+        ]));
     }
 
     public function store(Request $request)
@@ -127,9 +129,9 @@ class CotizacionController extends Controller
     {
         $this->autorizarAcceso($cotizacion);
 
-        if ($cotizacion->estado === 'aprobada') {
+        if (! $cotizacion->esEditable()) {
             return redirect()->route('cotizaciones.show', $cotizacion)
-                ->with('error', 'Una cotización aprobada no se puede editar.');
+                ->with('error', 'Esta cotización ya no se puede editar (tiene pagos registrados o cambió de estado).');
         }
 
         $cotizacion->load('items');
@@ -146,9 +148,9 @@ class CotizacionController extends Controller
     {
         $this->autorizarAcceso($cotizacion);
 
-        if ($cotizacion->estado === 'aprobada') {
+        if (! $cotizacion->esEditable()) {
             return redirect()->route('cotizaciones.show', $cotizacion)
-                ->with('error', 'Una cotización aprobada no se puede editar.');
+                ->with('error', 'Esta cotización ya no se puede editar (tiene pagos registrados o cambió de estado).');
         }
 
         $data = $this->validated($request);
@@ -194,6 +196,12 @@ class CotizacionController extends Controller
 
         $request->validate(['estado' => ['required', 'in:enviada,aprobada,rechazada']]);
         $nuevo = $request->estado;
+
+        // "aprobada" y "rechazada" (que puede revertir stock) son solo admin.
+        // El vendedor solo puede marcar "enviada" (para pedir revisión).
+        if (in_array($nuevo, ['aprobada', 'rechazada'], true) && ! Auth::user()->hasRole('admin')) {
+            abort(403, 'Solo el administrador puede aprobar o rechazar cotizaciones.');
+        }
 
         if ($nuevo === 'aprobada') {
             try {

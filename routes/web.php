@@ -8,13 +8,16 @@ use App\Http\Controllers\ClienteController;
 use App\Http\Controllers\CotizacionController;
 use App\Http\Controllers\CotizadorController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\EnvioController;
 use App\Http\Controllers\GarantiaController;
 use App\Http\Controllers\ListaPrecioController;
+use App\Http\Controllers\PagoController;
 use App\Http\Controllers\ProductoController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReporteController;
 use App\Http\Controllers\StockController;
 use App\Http\Controllers\UsuarioController;
+use App\Http\Controllers\ZonaEnvioController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -61,11 +64,34 @@ Route::middleware(['auth', 'role:admin|vendedor'])->group(function () {
         Route::delete('listas-precios/{lista}', [ListaPrecioController::class, 'destroy'])->name('listas-precios.destroy');
         Route::post('listas-precios/guardar', [ListaPrecioController::class, 'guardarPrecios'])->name('listas-precios.guardar');
 
-        // Productos: importación y eliminación (antes del resource compartido para evitar colisión con {producto})
+        // Productos, categorías e inventario — solo administrador
         Route::get('productos/plantilla', [ProductoController::class, 'plantilla'])->name('productos.plantilla');
         Route::post('productos/importar', [ProductoController::class, 'importar'])->name('productos.importar');
-        Route::delete('productos/{producto}', [ProductoController::class, 'destroy'])->name('productos.destroy');
-        Route::delete('categorias/{categoria}', [CategoriaController::class, 'destroy'])->name('categorias.destroy');
+        Route::resource('productos', ProductoController::class);
+        Route::resource('categorias', CategoriaController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::get('stock', [StockController::class, 'index'])->name('stock.index');
+        Route::get('stock/movimientos', [StockController::class, 'movimientos'])->name('stock.movimientos');
+        Route::get('stock/{producto}/kardex', [StockController::class, 'kardex'])->name('stock.kardex');
+        Route::post('stock/{producto}/movimiento', [StockController::class, 'movimiento'])->name('stock.movimiento');
+
+        // Zonas de envío (config admin)
+        Route::get('zonas-envio', [ZonaEnvioController::class, 'index'])->name('zonas-envio.index');
+        Route::post('zonas-envio', [ZonaEnvioController::class, 'store'])->name('zonas-envio.store');
+        Route::patch('zonas-envio/{zonaEnvio}', [ZonaEnvioController::class, 'update'])->name('zonas-envio.update');
+        Route::patch('zonas-envio/{zonaEnvio}/toggle', [ZonaEnvioController::class, 'toggle'])->name('zonas-envio.toggle');
+        Route::delete('zonas-envio/{zonaEnvio}', [ZonaEnvioController::class, 'destroy'])->name('zonas-envio.destroy');
+
+        // Aprobación/rechazo de pagos y cambio de estado de envíos — solo admin
+        Route::patch('cotizaciones/{cotizacion}/pagos/{pago}/aprobar', [PagoController::class, 'aprobar'])->name('pagos.aprobar');
+        Route::patch('cotizaciones/{cotizacion}/pagos/{pago}/rechazar', [PagoController::class, 'rechazar'])->name('pagos.rechazar');
+        Route::patch('cotizaciones/{cotizacion}/envio/{envio}/estado', [EnvioController::class, 'estado'])->name('envio.estado');
+
+        // Garantías — solo administrador (por ahora; guardamos la lógica para un futuro rol)
+        Route::patch('garantias/{garantia}/estado', [GarantiaController::class, 'estado'])->name('garantias.estado');
+        Route::post('garantias/{garantia}/evidencias', [GarantiaController::class, 'evidencias'])
+            ->middleware('throttle:20,1')
+            ->name('garantias.evidencias');
+        Route::resource('garantias', GarantiaController::class)->except(['edit', 'update']);
 
         // Links: gestión de enlaces compartibles del catálogo público
         Route::get('links', [CatalogoController::class, 'index'])->name('links.index');
@@ -96,15 +122,6 @@ Route::middleware(['auth', 'role:admin|vendedor'])->group(function () {
     | COMPARTIDO admin + vendedor
     |----------------------------------------------------------------------
     */
-    // Productos e inventario (sin eliminar — es solo admin arriba)
-    Route::resource('productos', ProductoController::class)->except(['destroy']);
-    Route::resource('categorias', CategoriaController::class)->only(['index', 'store', 'update']);
-
-    Route::get('stock', [StockController::class, 'index'])->name('stock.index');
-    Route::get('stock/movimientos', [StockController::class, 'movimientos'])->name('stock.movimientos');
-    Route::get('stock/{producto}/kardex', [StockController::class, 'kardex'])->name('stock.kardex');
-    Route::post('stock/{producto}/movimiento', [StockController::class, 'movimiento'])->name('stock.movimiento');
-
     // Clientes (sin eliminar)
     Route::resource('clientes', ClienteController::class)->except(['destroy']);
 
@@ -116,14 +133,13 @@ Route::middleware(['auth', 'role:admin|vendedor'])->group(function () {
     Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class, 'pdf'])->name('cotizaciones.pdf');
     Route::patch('cotizaciones/{cotizacion}/estado', [CotizacionController::class, 'estado'])->name('cotizaciones.estado');
     Route::post('cotizaciones/{cotizacion}/duplicar', [CotizacionController::class, 'duplicar'])->name('cotizaciones.duplicar');
+    // Pagos (vendedor sube; admin aprueba/rechaza arriba)
+    Route::post('cotizaciones/{cotizacion}/pagos', [PagoController::class, 'store'])->name('pagos.store');
+    Route::get('cotizaciones/{cotizacion}/pagos/{pago}/comprobante', [PagoController::class, 'comprobante'])->name('pagos.comprobante');
+    // Envíos (vendedor y admin pueden configurar; solo admin cambia estado, arriba)
+    Route::post('cotizaciones/{cotizacion}/envio', [EnvioController::class, 'store'])->name('envio.store');
     Route::resource('cotizaciones', CotizacionController::class)->except(['destroy'])->parameters(['cotizaciones' => 'cotizacion']);
 
-    // Garantías (sin editar/actualizar/eliminar)
-    Route::patch('garantias/{garantia}/estado', [GarantiaController::class, 'estado'])->name('garantias.estado');
-    Route::post('garantias/{garantia}/evidencias', [GarantiaController::class, 'evidencias'])
-        ->middleware('throttle:20,1') // máx. 20 uploads por minuto por usuario
-        ->name('garantias.evidencias');
-    Route::resource('garantias', GarantiaController::class)->except(['edit', 'update', 'destroy']);
 });
 
 require __DIR__.'/auth.php';

@@ -27,7 +27,10 @@ class Cotizacion extends Model
         'stock_descontado' => 'boolean',
     ];
 
-    public const ESTADOS = ['borrador', 'enviada', 'aprobada', 'rechazada'];
+    public const ESTADOS = ['borrador', 'enviada', 'pendiente_revision_pago', 'aprobada', 'rechazada', 'pagada'];
+
+    /** Estados en los que la cotización todavía puede recibir cambios estructurales (agregar/quitar items). */
+    public const EDITABLES = ['borrador', 'enviada'];
 
     public function cliente()
     {
@@ -42,6 +45,59 @@ class Cotizacion extends Model
     public function items()
     {
         return $this->hasMany(CotizacionItem::class);
+    }
+
+    /** Relación base sin ORDER BY para agregaciones limpias (sum, count). */
+    public function pagos()
+    {
+        return $this->hasMany(Pago::class);
+    }
+
+    /** Igual que pagos() pero ordenada por más reciente — útil en listados/UI. */
+    public function pagosRecientes()
+    {
+        return $this->hasMany(Pago::class)->latest();
+    }
+
+    public function envio()
+    {
+        return $this->hasOne(Envio::class);
+    }
+
+    /** Suma de pagos aprobados + pendientes (para saber cuánto lleva comprometido). */
+    public function montoPagado(): string
+    {
+        return (string) $this->pagos()->whereIn('estado', ['pendiente', 'aprobado'])->sum('monto');
+    }
+
+    /** Solo suma de pagos APROBADOS por admin. */
+    public function montoPagadoAprobado(): string
+    {
+        return (string) $this->pagos()->where('estado', 'aprobado')->sum('monto');
+    }
+
+    /**
+     * Cotización editable = está en un estado editable Y no tiene pagos activos (pendientes ni aprobados).
+     * Los pagos rechazados no bloquean (se pueden volver a subir).
+     */
+    public function esEditable(): bool
+    {
+        if (! in_array($this->estado, self::EDITABLES, true)) {
+            return false;
+        }
+        return ! $this->pagos()->whereIn('estado', ['pendiente', 'aprobado'])->exists();
+    }
+
+    /** ¿Los pagos activos cubren ya el total? Comparación decimal segura (bccomp). */
+    public function estaTotalmentePagada(): bool
+    {
+        return bccomp($this->montoPagado(), (string) $this->total, 2) >= 0;
+    }
+
+    /** ¿Los pagos APROBADOS cubren el total? Se usa para pasar a estado "pagada". */
+    public function pagosAprobadosCubrenTotal(): bool
+    {
+        return bccomp($this->montoPagadoAprobado(), (string) $this->total, 2) >= 0;
     }
 
     /**
@@ -181,11 +237,26 @@ class Cotizacion extends Model
     public function estadoBadge(): string
     {
         return match ($this->estado) {
-            'borrador'  => 'bg-gray-100 text-gray-600',
-            'enviada'   => 'bg-sweetgo-turquoise-light text-teal-700',
-            'aprobada'  => 'bg-green-100 text-green-700',
-            'rechazada' => 'bg-red-100 text-red-600',
-            default     => 'bg-gray-100 text-gray-600',
+            'borrador'                 => 'bg-gray-100 text-gray-600',
+            'enviada'                  => 'bg-sweetgo-turquoise-light text-teal-700',
+            'pendiente_revision_pago'  => 'bg-yellow-100 text-yellow-700',
+            'aprobada'                 => 'bg-green-100 text-green-700',
+            'pagada'                   => 'bg-emerald-100 text-emerald-700',
+            'rechazada'                => 'bg-red-100 text-red-600',
+            default                    => 'bg-gray-100 text-gray-600',
+        };
+    }
+
+    public function estadoLabel(): string
+    {
+        return match ($this->estado) {
+            'borrador'                 => 'Borrador',
+            'enviada'                  => 'Enviada',
+            'pendiente_revision_pago'  => 'Pendiente revisión pago',
+            'aprobada'                 => 'Aprobada',
+            'pagada'                   => 'Pagada',
+            'rechazada'                => 'Rechazada',
+            default                    => ucfirst($this->estado),
         };
     }
 }
