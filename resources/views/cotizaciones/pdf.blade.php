@@ -30,8 +30,7 @@
         <table>
             <tr>
                 <td>
-                    <div class="brand"><span class="pink">Sweet</span> <span class="star">&#10022;</span> <span class="pink">Go</span></div>
-                    <div class="teal" style="letter-spacing:3px; font-size:10px;">BEAUTY EXPERTS</div>
+                    <img src="{{ public_path('img/sweetgo-logo.png') }}" alt="Sweet Go" style="height: 60px; width: auto;">
                 </td>
                 <td class="right">
                     <div style="font-size:18px; font-weight:bold; color:#6B7280;">COTIZACIÓN</div>

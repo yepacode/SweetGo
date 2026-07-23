@@ -4,7 +4,7 @@
 
 @section('content')
     <div class="mb-6 flex items-center justify-between">
-        <p class="text-gray-500">Bienvenido a <x-brand class="text-lg align-middle" /> — Beauty Experts</p>
+        <p class="text-gray-500 flex items-center gap-2">Bienvenido a <x-brand class="h-6 inline-block" /></p>
         <a href="{{ route('reportes.index') }}" class="text-sm text-sweetgo-turquoise hover:underline">Ver reportes →</a>
     </div>
 

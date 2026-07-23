@@ -13,10 +13,9 @@
 <body class="font-sans antialiased">
     <div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-sweetgo-pink-light via-white to-sweetgo-turquoise-light px-6">
         <div class="text-center max-w-xl">
-            <x-brand class="text-6xl" />
-            <p class="mt-2 text-sm tracking-[0.35em] uppercase text-sweetgo-turquoise">Beauty Experts</p>
+            <x-brand class="h-32 mx-auto" />
 
-            <p class="mt-8 text-gray-500 leading-relaxed">
+            <p class="mt-6 text-gray-500 leading-relaxed">
                 Sistema de gestión comercial e inventario. Catálogo, cotizaciones, garantías y control de stock
                 en un solo lugar.
             </p>

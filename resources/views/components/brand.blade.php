@@ -1,8 +1,6 @@
-@props(['class' => ''])
+@props(['class' => 'h-8'])
 
-{{-- Logotipo tipográfico Sweet·Go (reemplazable por el PNG/SVG oficial en public/img/logo.png) --}}
-<span {{ $attributes->merge(['class' => 'inline-flex items-baseline font-serif tracking-tight select-none '.$class]) }}>
-    <span class="text-sweetgo-pink font-bold">Sweet</span>
-    <span class="mx-1 text-sweetgo-turquoise">&#10022;</span>
-    <span class="text-sweetgo-pink font-bold">Go</span>
-</span>
+{{-- Logotipo oficial Sweet Go (imagen en public/img/sweetgo-logo.png) --}}
+<img src="{{ asset('img/sweetgo-logo.png') }}"
+     alt="Sweet Go — Beauty Experts"
+     {{ $attributes->merge(['class' => 'w-auto select-none '.$class]) }}>

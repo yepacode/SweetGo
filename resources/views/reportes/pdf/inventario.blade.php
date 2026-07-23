@@ -5,8 +5,7 @@
     <div class="header">
         <table style="width:100%"><tr>
             <td>
-                <div class="brand"><span class="pink">Sweet</span> <span class="star">&#10022;</span> <span class="pink">Go</span></div>
-                <div class="teal">BEAUTY EXPERTS</div>
+                <img src="{{ public_path('img/sweetgo-logo.png') }}" alt="Sweet Go" style="height: 50px; width: auto;">
             </td>
             <td class="right">
                 <div class="title">REPORTE DE INVENTARIO</div>

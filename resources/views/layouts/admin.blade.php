@@ -24,7 +24,7 @@
 
         <div class="h-16 flex items-center px-6 border-b border-sweetgo-pink-light">
             <a href="{{ route('dashboard') }}">
-                <x-brand class="text-2xl" />
+                <x-brand class="h-9" />
             </a>
         </div>
 

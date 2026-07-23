@@ -20,9 +20,8 @@
         <div class="min-h-screen flex flex-col sm:justify-center items-center pt-6 sm:pt-0 bg-gradient-to-br from-sweetgo-pink-light via-white to-sweetgo-turquoise-light">
             <div class="text-center">
                 <a href="/">
-                    <x-brand class="text-4xl" />
+                    <x-brand class="h-20 mx-auto" />
                 </a>
-                <p class="mt-1 text-xs tracking-[0.3em] uppercase text-sweetgo-turquoise">Beauty Experts</p>
             </div>
 
             <div class="w-full sm:max-w-md mt-6 px-6 py-6 bg-white shadow-lg overflow-hidden sm:rounded-2xl border border-sweetgo-pink-light">

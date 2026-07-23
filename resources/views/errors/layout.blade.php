@@ -13,11 +13,7 @@
 <body class="font-sans antialiased">
     <div class="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-sweetgo-pink-light via-white to-sweetgo-turquoise-light px-6 py-10 text-center">
         <a href="/" class="mb-6">
-            <span class="font-serif text-4xl">
-                <span class="text-sweetgo-pink font-bold">Sweet</span>
-                <span class="text-sweetgo-turquoise mx-1">&#10022;</span>
-                <span class="text-sweetgo-pink font-bold">Go</span>
-            </span>
+            <img src="{{ asset('img/sweetgo-logo.png') }}" alt="Sweet Go — Beauty Experts" class="h-20 w-auto mx-auto select-none">
         </a>
 
         <div class="text-7xl font-bold text-sweetgo-pink">@yield('codigo')</div>

@@ -28,10 +28,9 @@
     {{-- Header --}}
     <header class="bg-white border-b border-sweetgo-pink-light sticky top-0 z-20">
         <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
-            <div>
-                <span class="font-serif text-2xl"><span class="text-sweetgo-pink font-bold">Sweet</span> <span class="text-sweetgo-turquoise">&#10022;</span> <span class="text-sweetgo-pink font-bold">Go</span></span>
-                <p class="text-[10px] tracking-[0.3em] uppercase text-sweetgo-turquoise">Beauty Experts</p>
-            </div>
+            <a href="/" class="block">
+                <img src="{{ asset('img/sweetgo-logo.png') }}" alt="Sweet Go — Beauty Experts" class="h-12 w-auto select-none">
+            </a>
             <a :href="'https://wa.me/' + whatsapp + '?text=' + encodeURIComponent('¡Hola Sweet Go! Vengo del catálogo 💖')"
                target="_blank" class="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-full bg-green-500 text-white text-sm font-medium hover:opacity-90">
                 <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M17.5 14.4c-.3-.1-1.7-.9-2-1-.3-.1-.5-.1-.6.1-.2.3-.7 1-.9 1.1-.2.2-.3.2-.6.1-.3-.1-1.2-.5-2.3-1.4-.9-.8-1.4-1.7-1.6-2-.2-.3 0-.5.1-.6.1-.1.3-.3.4-.5.1-.1.2-.3.3-.4.1-.2 0-.3 0-.5s-.6-1.5-.8-2c-.2-.5-.4-.4-.6-.5H8c-.2 0-.5.1-.7.3-.2.3-.9.9-.9 2.2s.9 2.5 1 2.7c.1.2 1.8 2.8 4.4 3.9 1.9.8 2.4.8 2.9.6.4-.1 1.7-.7 1.9-1.3.2-.6.2-1.2.2-1.3-.1-.1-.3-.2-.6-.3z"/><path d="M12 2C6.5 2 2 6.5 2 12c0 1.8.5 3.5 1.3 5L2 22l5.1-1.3C8.5 21.5 10.2 22 12 22c5.5 0 10-4.5 10-10S17.5 2 12 2zm0 18c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3 .8.8-2.9-.2-.3C4 15 3.5 13.5 3.5 12 3.5 7.3 7.3 3.5 12 3.5S20.5 7.3 20.5 12 16.7 20.5 12 20.5z"/></svg>
