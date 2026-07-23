@@ -1,6 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <!-- Fondo rosa Sweet Go con esquinas redondeadas -->
   <rect x="0" y="0" width="64" height="64" rx="14" ry="14" fill="#F58CD3"/>
-  <!-- Estrella turquesa afilada (como en el logo Sweet Go) -->
-  <path d="M 32.00 4.00 L 34.83 29.17 L 60.00 32.00 L 34.83 34.83 L 32.00 60.00 L 29.17 34.83 L 4.00 32.00 L 29.17 29.17 Z" fill="#FFFFFF"/>
+  <!-- Estrella turquesa (variante C2) con curvas Bezier -->
+  <path d="M 32 4
+           C 38.36 25.64, 38.36 25.64, 60 32
+           C 38.36 38.36, 38.36 38.36, 32 60
+           C 25.64 38.36, 25.64 38.36, 4 32
+           C 25.64 25.64, 25.64 25.64, 32 4 Z"
+        fill="#81D1D1"/>
 </svg>
