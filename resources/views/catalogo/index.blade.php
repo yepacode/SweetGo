@@ -26,6 +26,7 @@
             csrf: '{{ csrf_token() }}',
             postUrl: '{{ route('catalogo.store') }}',
             esAdmin: {{ $esAdmin ? 'true' : 'false' }},
+            vendedorIdInicial: {{ (int) auth()->id() }},
         })" x-cloak class="bg-white rounded-xl border border-sweetgo-pink-light overflow-hidden">
 
         {{-- PASO 1: seleccionar cliente --}}
@@ -369,6 +370,19 @@
                         <textarea x-model="notas" rows="2" placeholder="Observaciones, condiciones, etc."
                                   class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm"></textarea>
                     </div>
+                    @if ($esAdmin)
+                        <div>
+                            <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Asignar a vendedor</label>
+                            <select x-model.number="vendedorId"
+                                    class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-xs">
+                                @foreach ($vendedores as $v)
+                                    <option value="{{ $v->id }}" @selected($v->id === auth()->id())>{{ $v->name }}</option>
+                                @endforeach
+                            </select>
+                            <p class="mt-1 text-[10px] text-gray-400">Esta asignación no se puede cambiar después.</p>
+                        </div>
+                    @endif
+
                     <div>
                         <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Válida hasta</label>
                         <input type="date" x-model="validez"
@@ -550,10 +564,13 @@
             return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
         }
 
-        function cotizador({ clientes, productos, listasPrecios, csrf, postUrl, esAdmin }) {
+        function cotizador({ clientes, productos, listasPrecios, csrf, postUrl, esAdmin, vendedorIdInicial }) {
             return {
                 clientes, productos, listasPrecios, csrf, postUrl,
                 puedeEditarPrecio: !!esAdmin,
+                esAdmin: !!esAdmin,
+                // ID del vendedor asignado (solo lo cambia el admin desde el selector).
+                vendedorId: vendedorIdInicial || null,
                 productoDetalle: null,
                 paso: 1,
                 clienteSel: null,
@@ -802,6 +819,8 @@
                     const fd = new FormData();
                     fd.append('_token', this.csrf);
                     fd.append('cliente_id', this.clienteSel.id);
+                    // Solo admin manda user_id (vendedor); si es vendedor lo ignora el backend.
+                    if (this.esAdmin && this.vendedorId) fd.append('user_id', this.vendedorId);
                     fd.append('fecha', this.fecha);
                     if (this.validez) fd.append('validez', this.validez);
                     fd.append('descuento', Math.max(0, Number(this.descuento) || 0));

@@ -23,23 +23,25 @@
                 <button class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50">Duplicar</button>
             </form>
 
-            @if ($cotizacion->esEditable())
-                <a href="{{ route('cotizaciones.edit', $cotizacion) }}" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50">Editar</a>
-            @endif
+            {{-- Editar y cambios de estado: SOLO admin (decisión del cliente). --}}
+            @if (auth()->user()->hasRole('admin'))
+                @if ($cotizacion->esEditable())
+                    <a href="{{ route('cotizaciones.edit', $cotizacion) }}" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50">Editar</a>
+                @endif
 
-            {{-- Acciones de estado (solo si no hay pagos activos; con pagos el flujo lo maneja el bloque de Pagos) --}}
-            @if ($cotizacion->esEditable() && $cotizacion->estado === 'borrador')
-                <form method="POST" action="{{ route('cotizaciones.estado', $cotizacion) }}">
-                    @csrf @method('PATCH')<input type="hidden" name="estado" value="enviada">
-                    <button class="px-4 py-2 rounded-lg bg-sweetgo-turquoise text-white text-sm hover:opacity-90">Marcar enviada</button>
-                </form>
-            @endif
-            @if (auth()->user()->hasRole('admin') && $cotizacion->esEditable() && in_array($cotizacion->estado, ['borrador','enviada']))
-                <form method="POST" action="{{ route('cotizaciones.estado', $cotizacion) }}"
-                      onsubmit="return confirm('¿Rechazar esta cotización?')">
-                    @csrf @method('PATCH')<input type="hidden" name="estado" value="rechazada">
-                    <button class="px-4 py-2 rounded-lg border border-red-200 text-red-500 text-sm hover:bg-red-50">Rechazar</button>
-                </form>
+                @if ($cotizacion->esEditable() && $cotizacion->estado === 'borrador')
+                    <form method="POST" action="{{ route('cotizaciones.estado', $cotizacion) }}">
+                        @csrf @method('PATCH')<input type="hidden" name="estado" value="enviada">
+                        <button class="px-4 py-2 rounded-lg bg-sweetgo-turquoise text-white text-sm hover:opacity-90">Marcar enviada</button>
+                    </form>
+                @endif
+                @if ($cotizacion->esEditable() && in_array($cotizacion->estado, ['borrador','enviada']))
+                    <form method="POST" action="{{ route('cotizaciones.estado', $cotizacion) }}"
+                          onsubmit="return confirm('¿Rechazar esta cotización?')">
+                        @csrf @method('PATCH')<input type="hidden" name="estado" value="rechazada">
+                        <button class="px-4 py-2 rounded-lg border border-red-200 text-red-500 text-sm hover:bg-red-50">Rechazar</button>
+                    </form>
+                @endif
             @endif
         </div>
     </div>

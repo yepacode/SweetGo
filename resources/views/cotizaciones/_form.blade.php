@@ -22,8 +22,8 @@
     {{-- Columna principal: items --}}
     <div class="lg:col-span-2 space-y-5">
         <div class="bg-white rounded-xl border border-sweetgo-pink-light p-6">
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                <div class="sm:col-span-2">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="lg:col-span-2">
                     <label class="block text-sm font-medium text-gray-600 mb-1">Cliente <span class="text-sweetgo-pink">*</span></label>
                     <select name="cliente_id" required x-model.number="clienteId" @change="onCliente()"
                             class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
@@ -34,6 +34,20 @@
                     </select>
                     <p class="text-xs text-gray-400 mt-1" x-show="listaNombre" x-text="'Lista aplicada: ' + listaNombre"></p>
                 </div>
+
+                {{-- Selector de vendedor: solo aparece si el usuario es admin (los vendedores no llegan al edit). --}}
+                @if (isset($vendedores) && $vendedores->isNotEmpty())
+                    <div>
+                        <label class="block text-sm font-medium text-gray-600 mb-1">Asignar a vendedor</label>
+                        <select name="user_id"
+                                class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                            @foreach ($vendedores as $v)
+                                <option value="{{ $v->id }}" @selected(old('user_id', $cot?->user_id ?? auth()->id()) == $v->id)>{{ $v->name }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+                @endif
+
                 <div>
                     <label class="block text-sm font-medium text-gray-600 mb-1">Fecha <span class="text-sweetgo-pink">*</span></label>
                     <input type="date" name="fecha" value="{{ old('fecha', $cot?->fecha?->format('Y-m-d') ?? date('Y-m-d')) }}" required

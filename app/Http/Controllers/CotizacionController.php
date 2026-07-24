@@ -6,6 +6,7 @@ use App\Models\Cliente;
 use App\Models\Cotizacion;
 use App\Models\ListaPrecio;
 use App\Models\Producto;
+use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -44,12 +45,19 @@ class CotizacionController extends Controller
 
         $clientes->load('listaPrecio');
 
+        // Vendedores para el selector "Asignar a vendedor" (solo lo usa el admin al editar).
+        $vendedores = Auth::user()->hasRole('admin')
+            ? User::whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'vendedor']))
+                ->orderBy('name')->get(['id', 'name'])->values()
+            : collect();
+
         return [
             'clientes' => $clientes,
             'productos' => $productos,
             'clientesLista' => $clientes->mapWithKeys(fn ($c) => [$c->id => $c->lista_precio_id])->toArray(),
             'listasNombres' => ListaPrecio::pluck('nombre', 'id')->toArray(),
             'predeterminadaId' => ListaPrecio::predeterminada()?->id,
+            'vendedores' => $vendedores,
         ];
     }
 
@@ -129,6 +137,9 @@ class CotizacionController extends Controller
     {
         $this->autorizarAcceso($cotizacion);
 
+        // Solo admin puede editar cotizaciones (decisión del cliente).
+        abort_unless(Auth::user()->hasRole('admin'), 403, 'Solo el administrador puede editar cotizaciones.');
+
         if (! $cotizacion->esEditable()) {
             return redirect()->route('cotizaciones.show', $cotizacion)
                 ->with('error', 'Esta cotización ya no se puede editar (tiene pagos registrados o cambió de estado).');
@@ -148,6 +159,9 @@ class CotizacionController extends Controller
     {
         $this->autorizarAcceso($cotizacion);
 
+        // Solo admin puede editar cotizaciones (decisión del cliente).
+        abort_unless(Auth::user()->hasRole('admin'), 403, 'Solo el administrador puede editar cotizaciones.');
+
         if (! $cotizacion->esEditable()) {
             return redirect()->route('cotizaciones.show', $cotizacion)
                 ->with('error', 'Esta cotización ya no se puede editar (tiene pagos registrados o cambió de estado).');
@@ -162,14 +176,24 @@ class CotizacionController extends Controller
             'No puedes asignar esta cotización a un cliente ajeno.'
         );
 
-        DB::transaction(function () use ($cotizacion, $data) {
-            $cotizacion->update([
-                'cliente_id' => $data['cliente_id'],
-                'fecha' => $data['fecha'],
-                'validez' => $data['validez'] ?? null,
-                'descuento' => $data['descuento'] ?? 0,
-                'notas' => $data['notas'] ?? null,
-            ]);
+        // Reasignación de vendedor: solo admin puede, y el destino debe tener rol admin/vendedor.
+        $updates = [
+            'cliente_id' => $data['cliente_id'],
+            'fecha' => $data['fecha'],
+            'validez' => $data['validez'] ?? null,
+            'descuento' => $data['descuento'] ?? 0,
+            'notas' => $data['notas'] ?? null,
+        ];
+        if (! empty($data['user_id'])) {
+            $candidato = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'vendedor']))
+                ->whereKey($data['user_id'])->first();
+            if ($candidato) {
+                $updates['user_id'] = $candidato->id;
+            }
+        }
+
+        DB::transaction(function () use ($cotizacion, $data, $updates) {
+            $cotizacion->update($updates);
 
             $cotizacion->items()->delete();
             $this->guardarItems($cotizacion, $data['items']);
@@ -194,14 +218,11 @@ class CotizacionController extends Controller
     {
         $this->autorizarAcceso($cotizacion);
 
+        // Solo admin puede cambiar el estado de una cotización (decisión del cliente).
+        abort_unless(Auth::user()->hasRole('admin'), 403, 'Solo el administrador puede cambiar el estado de cotizaciones.');
+
         $request->validate(['estado' => ['required', 'in:enviada,aprobada,rechazada']]);
         $nuevo = $request->estado;
-
-        // "aprobada" y "rechazada" (que puede revertir stock) son solo admin.
-        // El vendedor solo puede marcar "enviada" (para pedir revisión).
-        if (in_array($nuevo, ['aprobada', 'rechazada'], true) && ! Auth::user()->hasRole('admin')) {
-            abort(403, 'Solo el administrador puede aprobar o rechazar cotizaciones.');
-        }
 
         if ($nuevo === 'aprobada') {
             try {
@@ -311,6 +332,7 @@ class CotizacionController extends Controller
     {
         $data = $request->validate([
             'cliente_id' => ['required', 'exists:clientes,id'],
+            'user_id' => ['nullable', 'exists:users,id'], // vendedor asignado (solo admin puede mandarlo)
             'fecha' => ['required', 'date'],
             'validez' => ['nullable', 'date', 'after_or_equal:fecha'],
             'descuento' => ['nullable', 'numeric', 'min:0'],

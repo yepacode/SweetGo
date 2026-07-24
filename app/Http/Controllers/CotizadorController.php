@@ -7,6 +7,7 @@ use App\Models\Cliente;
 use App\Models\Cotizacion;
 use App\Models\ListaPrecio;
 use App\Models\Producto;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
@@ -94,13 +95,24 @@ class CotizadorController extends Controller
             ->get(['id', 'nombre', 'es_publica', 'es_predeterminada']);
         $esAdmin = $u->hasRole('admin');
 
-        return view('catalogo.index', compact('clientes', 'productos', 'categorias', 'listasPrecios', 'esAdmin'));
+        // Lista de vendedores para el selector "Asignar a vendedor" (solo lo usa el admin).
+        // Incluye a todos los usuarios con rol admin o vendedor. El vendedor no ve el selector,
+        // así que se manda solo si es admin (evita exponer la lista sin necesidad).
+        $vendedores = $esAdmin
+            ? User::whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'vendedor']))
+                ->orderBy('name')
+                ->get(['id', 'name'])
+                ->values()
+            : collect();
+
+        return view('catalogo.index', compact('clientes', 'productos', 'categorias', 'listasPrecios', 'esAdmin', 'vendedores'));
     }
 
     public function store(Request $request)
     {
         $data = $request->validate([
             'cliente_id' => ['required', 'exists:clientes,id'],
+            'user_id' => ['nullable', 'exists:users,id'], // vendedor asignado (solo admin puede mandarlo)
             'fecha' => ['required', 'date'],
             'validez' => ['nullable', 'date', 'after_or_equal:fecha'],
             'descuento' => ['nullable', 'numeric', 'min:0'],
@@ -116,6 +128,18 @@ class CotizadorController extends Controller
             'items.required' => 'Agrega al menos un producto al carrito antes de generar la cotización.',
             'cliente_id.required' => 'Selecciona un cliente.',
         ]);
+
+        // Vendedor asignado: solo el admin puede elegir un vendedor distinto a sí mismo.
+        // Además, debe ser un usuario con rol vendedor o admin (evita asignar a usuarios raros).
+        $vendedorId = Auth::id();
+        if (Auth::user()->hasRole('admin') && ! empty($data['user_id'])) {
+            $candidato = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'vendedor']))
+                ->whereKey($data['user_id'])
+                ->first();
+            if ($candidato) {
+                $vendedorId = $candidato->id;
+            }
+        }
 
         // Un vendedor no puede cotizar para un cliente que no es suyo.
         abort_unless(
@@ -145,10 +169,10 @@ class CotizadorController extends Controller
             }
         }
 
-        $cotizacion = DB::transaction(function () use ($data) {
+        $cotizacion = DB::transaction(function () use ($data, $vendedorId) {
             $cot = Cotizacion::crearConNumero([
                 'cliente_id' => $data['cliente_id'],
-                'user_id' => Auth::id(),
+                'user_id' => $vendedorId,
                 'estado' => 'borrador',
                 'fecha' => $data['fecha'],
                 'validez' => $data['validez'] ?? null,
