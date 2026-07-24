@@ -132,6 +132,7 @@ Route::middleware(['auth', 'role:admin|vendedor'])->group(function () {
     // Cotizaciones (sin eliminar)
     Route::get('cotizaciones/{cotizacion}/pdf', [CotizacionController::class, 'pdf'])->name('cotizaciones.pdf');
     Route::patch('cotizaciones/{cotizacion}/estado', [CotizacionController::class, 'estado'])->name('cotizaciones.estado');
+    Route::patch('cotizaciones/{cotizacion}/vendedor', [CotizacionController::class, 'reasignarVendedor'])->name('cotizaciones.vendedor');
     Route::post('cotizaciones/{cotizacion}/duplicar', [CotizacionController::class, 'duplicar'])->name('cotizaciones.duplicar');
     // Pagos (vendedor sube; admin aprueba/rechaza arriba)
     Route::post('cotizaciones/{cotizacion}/pagos', [PagoController::class, 'store'])->name('pagos.store');

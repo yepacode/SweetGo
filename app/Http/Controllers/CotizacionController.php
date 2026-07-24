@@ -130,7 +130,13 @@ class CotizacionController extends Controller
 
         $cotizacion->load(['cliente', 'vendedor', 'items']);
 
-        return view('cotizaciones.show', compact('cotizacion'));
+        // Lista de vendedores para el mini-form de reasignar (solo si es admin).
+        $vendedores = Auth::user()->hasRole('admin')
+            ? User::whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'vendedor']))
+                ->orderBy('name')->get(['id', 'name'])
+            : collect();
+
+        return view('cotizaciones.show', compact('cotizacion', 'vendedores'));
     }
 
     public function edit(Cotizacion $cotizacion)
@@ -246,6 +252,37 @@ class CotizacionController extends Controller
         }
 
         return back()->with('success', $msg);
+    }
+
+    /**
+     * Reasignar el vendedor de una cotización. Funciona en CUALQUIER estado
+     * (incluso aprobada o con pagos): solo cambia user_id, no toca items ni stock.
+     * Solo admin puede llamarlo. Registrado en bitácora por el trait RegistraBitacora.
+     */
+    public function reasignarVendedor(Request $request, Cotizacion $cotizacion)
+    {
+        abort_unless(Auth::user()->hasRole('admin'), 403, 'Solo el administrador puede reasignar el vendedor.');
+
+        $data = $request->validate([
+            'user_id' => ['required', 'exists:users,id'],
+        ], [
+            'user_id.required' => 'Selecciona un vendedor.',
+        ]);
+
+        // El destino debe tener rol admin o vendedor.
+        $destino = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'vendedor']))
+            ->whereKey($data['user_id'])->first();
+
+        abort_unless($destino, 422, 'El usuario elegido no puede ser vendedor de cotizaciones.');
+
+        if ($cotizacion->user_id === $destino->id) {
+            return back()->with('success', 'El vendedor ya estaba asignado a ' . $destino->name . '.');
+        }
+
+        $anterior = $cotizacion->vendedor?->name ?? 'sin asignar';
+        $cotizacion->update(['user_id' => $destino->id]);
+
+        return back()->with('success', "Vendedor cambiado: {$anterior} → {$destino->name}.");
     }
 
     /** Duplica una cotización: crea una nueva en borrador con los mismos ítems, misma fecha=hoy. */

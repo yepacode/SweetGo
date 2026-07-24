@@ -55,7 +55,37 @@
             @if ($cotizacion->validez)
                 <div><dt class="text-gray-400">Válida hasta</dt><dd class="text-gray-700">{{ $cotizacion->validez->format('d/m/Y') }}</dd></div>
             @endif
-            <div><dt class="text-gray-400">Vendedor</dt><dd class="text-gray-700">{{ $cotizacion->vendedor?->name ?? '—' }}</dd></div>
+            <div>
+                <dt class="text-gray-400">Vendedor</dt>
+                <dd class="text-gray-700 flex items-center gap-2 flex-wrap">
+                    <span>{{ $cotizacion->vendedor?->name ?? '—' }}</span>
+                    {{-- Reasignar vendedor (solo admin, funciona en cualquier estado / con pagos). --}}
+                    @if (auth()->user()->hasRole('admin') && $vendedores->isNotEmpty())
+                        <div x-data="{ abierto: false }" class="relative">
+                            <button type="button" @click="abierto = !abierto"
+                                    class="text-xs text-sweetgo-turquoise hover:underline">
+                                Reasignar
+                            </button>
+                            <div x-show="abierto" x-cloak @click.outside="abierto = false"
+                                 class="absolute left-0 mt-1 w-64 bg-white rounded-lg shadow-lg border border-sweetgo-pink-light p-3 z-20">
+                                <form method="POST" action="{{ route('cotizaciones.vendedor', $cotizacion) }}" class="space-y-2">
+                                    @csrf @method('PATCH')
+                                    <label class="block text-[10px] uppercase tracking-wide text-gray-500">Nuevo vendedor</label>
+                                    <select name="user_id" class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                                        @foreach ($vendedores as $v)
+                                            <option value="{{ $v->id }}" @selected($v->id === $cotizacion->user_id)>{{ $v->name }}</option>
+                                        @endforeach
+                                    </select>
+                                    <div class="flex justify-end gap-1">
+                                        <button type="button" @click="abierto = false" class="px-2 py-1 text-xs text-gray-500 hover:underline">Cancelar</button>
+                                        <button class="px-3 py-1 rounded-lg bg-sweetgo-pink text-white text-xs font-medium hover:opacity-90">Guardar</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    @endif
+                </dd>
+            </div>
             @if ($cotizacion->stock_descontado)
                 <div class="pt-2"><span class="inline-block px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-xs">✓ Stock descontado</span></div>
             @endif
