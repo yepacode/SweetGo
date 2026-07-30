@@ -34,7 +34,9 @@ class Cotizacion extends Model
     public const ESTADOS = ['borrador', 'enviada', 'pendiente_revision_pago', 'aprobada', 'rechazada', 'pagada'];
 
     /** Estados en los que la cotización todavía puede recibir cambios estructurales (agregar/quitar items). */
-    public const EDITABLES = ['borrador', 'enviada'];
+    // Cotización se puede editar únicamente mientras es borrador (antes de que se marque "enviada").
+    // Cambio jul-2026: antes también en 'enviada', ahora se congela al enviarla.
+    public const EDITABLES = ['borrador'];
 
     public function cliente()
     {
@@ -90,6 +92,23 @@ class Cotizacion extends Model
             return false;
         }
         return ! $this->pagos()->whereIn('estado', ['pendiente', 'aprobado'])->exists();
+    }
+
+    /**
+     * ¿Este usuario puede editar la cotización?
+     * - Admin: cualquier cotización que esté en estado editable (borrador).
+     * - Vendedor: solo si es SU propia cotización y está en borrador.
+     * Regla del cliente (jul-2026): "editar en todo momento antes de que se envíe".
+     */
+    public function puedeEditar(?\App\Models\User $user): bool
+    {
+        if (! $user || ! $this->esEditable()) {
+            return false;
+        }
+        if ($user->hasRole('admin')) {
+            return true;
+        }
+        return $this->user_id === $user->id;
     }
 
     /** ¿Los pagos activos cubren ya el total? Comparación decimal segura (bccomp). */

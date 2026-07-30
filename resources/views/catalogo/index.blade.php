@@ -366,8 +366,8 @@
                 {{-- Comentarios + validez --}}
                 <div class="px-5 py-3 border-t border-sweetgo-pink-light bg-white space-y-3">
                     <div>
-                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Comentarios del cliente</label>
-                        <textarea x-model="notas" rows="2" placeholder="Observaciones, condiciones, etc."
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Observaciones</label>
+                        <textarea x-model="notas" rows="2" placeholder="Orden de compra, especificaciones, condiciones especiales…"
                                   class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink text-sm"></textarea>
                     </div>
                     @if ($esAdmin)

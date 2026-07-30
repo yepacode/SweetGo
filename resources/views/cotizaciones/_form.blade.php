@@ -109,8 +109,9 @@
         </div>
 
         <div class="bg-white rounded-xl border border-sweetgo-pink-light p-6">
-            <label class="block text-sm font-medium text-gray-600 mb-1">Notas</label>
-            <textarea name="notas" rows="2" class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">{{ old('notas', $cot?->notas) }}</textarea>
+            <label class="block text-sm font-medium text-gray-600 mb-1">Observaciones</label>
+            <textarea name="notas" rows="3" placeholder="Orden de compra, especificaciones, condiciones especiales del pedido…"
+                      class="w-full rounded-lg border-gray-200 focus:border-sweetgo-pink focus:ring-sweetgo-pink">{{ old('notas', $cot?->notas) }}</textarea>
         </div>
     </div>
 

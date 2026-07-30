@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Cliente;
 use App\Models\Cotizacion;
 use App\Models\ListaPrecio;
+use App\Models\Notificacion;
 use App\Models\Producto;
 use App\Models\User;
 use Barryvdh\DomPDF\Facade\Pdf;
@@ -66,9 +67,16 @@ class CotizacionController extends Controller
         $u = Auth::user();
 
         $cotizaciones = Cotizacion::query()
-            ->with(['cliente', 'vendedor'])
+            ->with(['cliente', 'vendedor', 'envio'])
             ->when(! $u->hasRole('admin'), fn ($q) => $q->where('user_id', $u->id))
             ->when($request->filled('estado'), fn ($q) => $q->where('estado', $request->estado))
+            ->when($request->filled('estado_envio'), function ($q) use ($request) {
+                if ($request->estado_envio === 'sin_envio') {
+                    $q->whereDoesntHave('envio');
+                } else {
+                    $q->whereHas('envio', fn ($e) => $e->where('estado', $request->estado_envio));
+                }
+            })
             ->when($request->filled('buscar'), function ($q) use ($request) {
                 $b = $request->buscar;
                 $q->where(function ($sub) use ($b) {
@@ -143,12 +151,10 @@ class CotizacionController extends Controller
     {
         $this->autorizarAcceso($cotizacion);
 
-        // Solo admin puede editar cotizaciones (decisión del cliente).
-        abort_unless(Auth::user()->hasRole('admin'), 403, 'Solo el administrador puede editar cotizaciones.');
-
-        if (! $cotizacion->esEditable()) {
+        // Regla jul-2026: admin edita en cualquier borrador; vendedor edita solo su propio borrador.
+        if (! $cotizacion->puedeEditar(Auth::user())) {
             return redirect()->route('cotizaciones.show', $cotizacion)
-                ->with('error', 'Esta cotización ya no se puede editar (tiene pagos registrados o cambió de estado).');
+                ->with('error', 'Esta cotización ya no se puede editar (ya fue enviada, cambió de estado o tiene pagos).');
         }
 
         $cotizacion->load('items');
@@ -165,12 +171,10 @@ class CotizacionController extends Controller
     {
         $this->autorizarAcceso($cotizacion);
 
-        // Solo admin puede editar cotizaciones (decisión del cliente).
-        abort_unless(Auth::user()->hasRole('admin'), 403, 'Solo el administrador puede editar cotizaciones.');
-
-        if (! $cotizacion->esEditable()) {
+        // Regla jul-2026: admin edita en cualquier borrador; vendedor edita solo su propio borrador.
+        if (! $cotizacion->puedeEditar(Auth::user())) {
             return redirect()->route('cotizaciones.show', $cotizacion)
-                ->with('error', 'Esta cotización ya no se puede editar (tiene pagos registrados o cambió de estado).');
+                ->with('error', 'Esta cotización ya no se puede editar (ya fue enviada, cambió de estado o tiene pagos).');
         }
 
         $data = $this->validated($request);
@@ -190,13 +194,23 @@ class CotizacionController extends Controller
             'descuento' => $data['descuento'] ?? 0,
             'notas' => $data['notas'] ?? null,
         ];
-        if (! empty($data['user_id'])) {
+        if (Auth::user()->hasRole('admin') && ! empty($data['user_id'])) {
             $candidato = User::whereHas('roles', fn ($q) => $q->whereIn('name', ['admin', 'vendedor']))
                 ->whereKey($data['user_id'])->first();
             if ($candidato) {
                 $updates['user_id'] = $candidato->id;
             }
         }
+
+        // Snapshot para el diff que le mandamos al admin en la alerta.
+        $antesItems = $cotizacion->items->map(fn ($i) => [
+            'producto_id' => (int) $i->producto_id,
+            'nombre' => $i->nombre,
+            'cantidad' => (int) $i->cantidad,
+            'precio_unitario' => (float) $i->precio_unitario,
+        ])->all();
+        $antesTotal = (float) $cotizacion->total;
+        $antesNotas = (string) $cotizacion->notas;
 
         DB::transaction(function () use ($cotizacion, $data, $updates) {
             $cotizacion->update($updates);
@@ -206,8 +220,92 @@ class CotizacionController extends Controller
             $cotizacion->recalcularTotales();
         });
 
+        // Regla jul-2026: si el que editó es un vendedor (no admin) y la cotización está en borrador,
+        // avisar al admin qué cambió y el estado de pago actual.
+        if (! Auth::user()->hasRole('admin')) {
+            $cotizacion->refresh()->load('items');
+            $this->notificarEdicionVendedor($cotizacion, $antesItems, $antesTotal, $antesNotas);
+        }
+
         return redirect()->route('cotizaciones.show', $cotizacion)
             ->with('success', "Cotización {$cotizacion->numero} actualizada.");
+    }
+
+    /**
+     * Arma el diff (agregados / removidos / cambios de cant/precio + delta total + notas + estado pago)
+     * y notifica a todos los admins.
+     */
+    private function notificarEdicionVendedor(Cotizacion $cot, array $antesItems, float $antesTotal, string $antesNotas): void
+    {
+        $antes = collect($antesItems)->keyBy('producto_id');
+        $despues = $cot->items->keyBy('producto_id')->map(fn ($i) => [
+            'producto_id' => (int) $i->producto_id,
+            'nombre' => $i->nombre,
+            'cantidad' => (int) $i->cantidad,
+            'precio_unitario' => (float) $i->precio_unitario,
+        ]);
+
+        $agregados = $despues->diffKeys($antes)->values();
+        $removidos = $antes->diffKeys($despues)->values();
+        $modificados = $despues->intersectByKeys($antes)->filter(function ($nuevo, $pid) use ($antes) {
+            $viejo = $antes[$pid];
+            return $viejo['cantidad'] !== $nuevo['cantidad'] || (float) $viejo['precio_unitario'] !== (float) $nuevo['precio_unitario'];
+        })->values();
+
+        $lineas = [];
+        foreach ($agregados as $it) {
+            $lineas[] = "➕ Agregó «{$it['nombre']}» ×{$it['cantidad']} a $" . number_format($it['precio_unitario'], 0, ',', '.');
+        }
+        foreach ($removidos as $it) {
+            $lineas[] = "➖ Quitó «{$it['nombre']}» (era ×{$it['cantidad']})";
+        }
+        foreach ($modificados as $it) {
+            $viejo = $antes[$it['producto_id']];
+            $cambios = [];
+            if ($viejo['cantidad'] !== $it['cantidad']) {
+                $cambios[] = "cantidad {$viejo['cantidad']} → {$it['cantidad']}";
+            }
+            if ((float) $viejo['precio_unitario'] !== (float) $it['precio_unitario']) {
+                $cambios[] = 'precio $' . number_format($viejo['precio_unitario'], 0, ',', '.') . ' → $' . number_format($it['precio_unitario'], 0, ',', '.');
+            }
+            $lineas[] = "✏️ «{$it['nombre']}»: " . implode(', ', $cambios);
+        }
+        if ($antesNotas !== (string) $cot->notas) {
+            $lineas[] = '📝 Actualizó observaciones';
+        }
+
+        $deltaTotal = (float) $cot->total - $antesTotal;
+        if (abs($deltaTotal) >= 1) {
+            $signo = $deltaTotal > 0 ? '+' : '−';
+            $lineas[] = "💰 Total: $" . number_format($antesTotal, 0, ',', '.') . ' → $' . number_format($cot->total, 0, ',', '.') . " ({$signo}$" . number_format(abs($deltaTotal), 0, ',', '.') . ')';
+        }
+
+        if (empty($lineas)) {
+            $lineas[] = 'Guardó cambios menores sin impacto en ítems, total ni observaciones.';
+        }
+
+        // Estado de pago actual
+        $aprobado = (float) $cot->montoPagadoAprobado();
+        $totalCot = (float) $cot->total;
+        if ($aprobado <= 0) {
+            $estadoPago = '💳 Estado de pago: SIN pagos registrados aún.';
+        } elseif ($aprobado >= $totalCot) {
+            $estadoPago = '💳 Estado de pago: PAGADA en su totalidad ($' . number_format($aprobado, 0, ',', '.') . ').';
+        } else {
+            $saldo = $totalCot - $aprobado;
+            $estadoPago = '💳 Estado de pago: PARCIAL — abonado $' . number_format($aprobado, 0, ',', '.') . ', saldo pendiente $' . number_format($saldo, 0, ',', '.') . '.';
+        }
+
+        $vendedorNombre = Auth::user()->name;
+        $titulo = "{$cot->numero} · editada por {$vendedorNombre}";
+        $mensaje = implode("\n", $lineas) . "\n\n" . $estadoPago;
+
+        Notificacion::alertarAdmins(
+            'cotizacion_editada',
+            $titulo,
+            $mensaje,
+            route('cotizaciones.show', $cot)
+        );
     }
 
     public function destroy(Cotizacion $cotizacion)

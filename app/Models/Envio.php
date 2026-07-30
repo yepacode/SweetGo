@@ -11,16 +11,31 @@ class Envio extends Model
     protected $fillable = [
         'cotizacion_id', 'zona_envio_id', 'cliente_sucursal_id',
         'direccion', 'ciudad', 'contacto', 'telefono',
-        'peso_kg', 'costo', 'transportador', 'guia_numero',
+        'peso_kg', 'costo', 'flete_asumido_sweetgo',
+        'transportador', 'guia_numero', 'guia_archivo',
         'estado', 'fecha_estimada', 'entregado_at', 'notas',
     ];
 
     protected $casts = [
         'peso_kg' => 'decimal:3',
         'costo' => 'decimal:2',
+        'flete_asumido_sweetgo' => 'boolean',
         'fecha_estimada' => 'date',
         'entregado_at' => 'datetime',
     ];
+
+    public function guiaUrl(): ?string
+    {
+        return $this->guia_archivo
+            ? \Illuminate\Support\Facades\Storage::disk('public')->url($this->guia_archivo)
+            : null;
+    }
+
+    public function guiaEsImagen(): bool
+    {
+        if (! $this->guia_archivo) return false;
+        return in_array(strtolower(pathinfo($this->guia_archivo, PATHINFO_EXTENSION)), ['jpg', 'jpeg', 'png', 'webp']);
+    }
 
     public const ESTADOS = ['pendiente', 'en_ruta', 'entregado', 'cancelado'];
 

@@ -4,6 +4,7 @@ namespace App\View\Composers;
 
 use App\Models\Cotizacion;
 use App\Models\Garantia;
+use App\Models\Notificacion;
 use App\Models\Producto;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\View\View;
@@ -14,7 +15,7 @@ class NotificacionesComposer
     {
         $u = Auth::user();
         if (! $u) {
-            $view->with('notificaciones', ['total' => 0, 'stockBajo' => [], 'garantiasAbiertas' => [], 'cotizacionesEnviadas' => []]);
+            $view->with('notificaciones', ['total' => 0, 'stockBajo' => collect(), 'garantiasAbiertas' => collect(), 'cotizacionesEnviadas' => collect(), 'alertas' => collect()]);
             return;
         }
 
@@ -39,11 +40,19 @@ class NotificacionesComposer
             ->latest()->limit(5)
             ->get(['id', 'numero', 'total']);
 
+        // Alertas dirigidas al usuario (ej. cotización editada por vendedor).
+        $alertas = Notificacion::where('para_user_id', $u->id)
+            ->noLeidas()
+            ->latest()
+            ->limit(10)
+            ->get(['id', 'tipo', 'titulo', 'mensaje', 'url', 'created_at']);
+
         $view->with('notificaciones', [
-            'total' => $stockBajo->count() + $garantiasAbiertas->count() + $cotizacionesEnviadas->count(),
+            'total' => $stockBajo->count() + $garantiasAbiertas->count() + $cotizacionesEnviadas->count() + $alertas->count(),
             'stockBajo' => $stockBajo,
             'garantiasAbiertas' => $garantiasAbiertas,
             'cotizacionesEnviadas' => $cotizacionesEnviadas,
+            'alertas' => $alertas,
         ]);
     }
 }

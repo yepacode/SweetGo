@@ -11,7 +11,7 @@
         .brand { font-size: 28px; font-weight: bold; }
         .brand .star { color: #81D1D1; }
         .muted { color: #9CA3AF; }
-        .content { padding: 24px 32px; }
+        .content { padding: 24px 32px; position: relative; }
         table { width: 100%; border-collapse: collapse; }
         .meta td { padding: 2px 0; vertical-align: top; }
         .items th { background: #F9E9F8; color: #6B7280; text-align: left; padding: 8px 10px; font-size: 11px; }
@@ -23,9 +23,23 @@
         .badge { display: inline-block; padding: 3px 10px; border-radius: 10px; background: #C3EAEA; color: #0f766e; font-size: 11px; }
         .box { background: #FBF7FB; border: 1px solid #F9E9F8; border-radius: 8px; padding: 12px 14px; }
         .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #eee; font-size: 10px; color: #9CA3AF; text-align: center; }
+
+        /* Marca de agua: logo grande centrado, opacidad muy baja, detrás del contenido */
+        .watermark {
+            position: fixed;
+            top: 28%;
+            left: 9%;
+            width: 82%;
+            opacity: 0.07;
+            z-index: -1;
+            transform: rotate(-18deg);
+        }
     </style>
 </head>
 <body>
+    {{-- Marca de agua con el logo (aparece en todas las páginas del PDF) --}}
+    <img class="watermark" src="{{ public_path('img/sweetgo-logo.png') }}" alt="">
+
     <div class="header">
         <table>
             <tr>
@@ -63,6 +77,7 @@
                             <tr><td class="muted">Fecha:</td><td class="right">{{ $cotizacion->fecha->format('d/m/Y') }}</td></tr>
                             @if ($cotizacion->validez)<tr><td class="muted">Válida hasta:</td><td class="right">{{ $cotizacion->validez->format('d/m/Y') }}</td></tr>@endif
                             <tr><td class="muted">Vendedor:</td><td class="right">{{ $cotizacion->vendedor?->name ?? '—' }}</td></tr>
+                            <tr><td class="muted">Productos:</td><td class="right"><strong>{{ $cotizacion->items->count() }}</strong></td></tr>
                         </table>
                     </div>
                 </td>
@@ -72,15 +87,17 @@
         <table class="items" style="margin-top:20px;">
             <thead>
                 <tr>
+                    <th width="6%">#</th>
                     <th>Producto</th>
                     <th class="center" width="10%">Cant.</th>
                     <th class="right" width="18%">Precio unit.</th>
-                    <th class="right" width="20%">Subtotal</th>
+                    <th class="right" width="18%">Subtotal</th>
                 </tr>
             </thead>
             <tbody>
-                @foreach ($cotizacion->items as $item)
+                @foreach ($cotizacion->items as $index => $item)
                     <tr>
+                        <td class="muted">{{ $index + 1 }}</td>
                         <td>{{ $item->nombre }}@if ($item->referencia)<span class="muted"> · {{ $item->referencia }}</span>@endif</td>
                         <td class="center">{{ $item->cantidad }}</td>
                         <td class="right">${{ number_format($item->precio_unitario, 0, ',', '.') }}</td>
@@ -88,14 +105,22 @@
                     </tr>
                 @endforeach
             </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="5" class="muted" style="padding-top:6px; font-size:10px;">
+                        Total de ítems: <strong>{{ $cotizacion->items->count() }}</strong> ·
+                        Unidades: <strong>{{ $cotizacion->items->sum('cantidad') }}</strong>
+                    </td>
+                </tr>
+            </tfoot>
         </table>
 
         <table style="margin-top:12px;">
             <tr>
                 <td width="60%" style="vertical-align:top;">
                     @if ($cotizacion->notas)
-                        <div class="muted" style="font-size:10px; text-transform:uppercase; margin-bottom:4px;">Notas</div>
-                        <div style="font-size:11px;">{{ $cotizacion->notas }}</div>
+                        <div class="muted" style="font-size:10px; text-transform:uppercase; margin-bottom:4px;">Observaciones</div>
+                        <div style="font-size:11px; white-space: pre-line;">{{ $cotizacion->notas }}</div>
                     @endif
                 </td>
                 <td width="40%">

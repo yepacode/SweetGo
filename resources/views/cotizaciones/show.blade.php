@@ -6,9 +6,43 @@
     <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
             <a href="{{ route('cotizaciones.index') }}" class="text-sm text-sweetgo-turquoise hover:underline">← Volver a cotizaciones</a>
-            <div class="flex items-center gap-3 mt-1">
+            <div class="flex flex-wrap items-center gap-2 mt-1">
                 <h2 class="text-xl font-semibold text-gray-800">{{ $cotizacion->numero }}</h2>
                 <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium {{ $cotizacion->estadoBadge() }}">{{ $cotizacion->estadoLabel() }}</span>
+
+                {{-- Badge de pago: distingue "Pagada" vs "A crédito" (saldo pendiente) --}}
+                @php
+                    $totalCotHdr = (float) $cotizacion->total;
+                    $aprobadoHdr = (float) $cotizacion->montoPagadoAprobado();
+                    $saldoHdr = max(0, $totalCotHdr - $aprobadoHdr);
+                @endphp
+                @if ($cotizacion->estado === 'pagada')
+                    <span class="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">✓ Pagada</span>
+                @elseif (! in_array($cotizacion->estado, ['borrador','rechazada'], true) && $saldoHdr > 0)
+                    <span class="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium"
+                          title="Saldo pendiente: ${{ number_format($saldoHdr, 0, ',', '.') }}">
+                        A crédito · ${{ number_format($saldoHdr, 0, ',', '.') }}
+                    </span>
+                @endif
+
+                {{-- Contador de ítems --}}
+                <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-sweetgo-pink-light text-sweetgo-pink">
+                    {{ $cotizacion->items->count() }} {{ $cotizacion->items->count() === 1 ? 'producto' : 'productos' }}
+                </span>
+
+                {{-- Estado del envío (tipo Miracle): pendiente/en_ruta/entregado, o "Sin envío" si está pagada sin registro --}}
+                @if ($cotizacion->envio)
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium {{ $cotizacion->envio->estadoBadge() }}"
+                          title="Envío {{ $cotizacion->envio->estadoLabel() }}{{ $cotizacion->envio->guia_numero ? ' · guía #'.$cotizacion->envio->guia_numero : '' }}">
+                        🚚 {{ $cotizacion->envio->estadoLabel() }}
+                    </span>
+                @elseif ($cotizacion->estado === 'pagada')
+                    <span class="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700"
+                          title="Cotización pagada sin envío configurado">
+                        🚚 Sin envío
+                    </span>
+                @endif
+
                 @if ($cotizacion->esta_vencida)
                     <span class="inline-block px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-600">Vencida el {{ $cotizacion->validez->format('d/m/Y') }}</span>
                 @endif
@@ -23,19 +57,20 @@
                 <button class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50">Duplicar</button>
             </form>
 
-            {{-- Editar y cambios de estado: SOLO admin (decisión del cliente). --}}
-            @if (auth()->user()->hasRole('admin'))
-                @if ($cotizacion->esEditable())
-                    <a href="{{ route('cotizaciones.edit', $cotizacion) }}" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50">Editar</a>
-                @endif
+            {{-- Editar: admin en cualquier borrador; vendedor en su propio borrador. --}}
+            @if ($cotizacion->puedeEditar(auth()->user()))
+                <a href="{{ route('cotizaciones.edit', $cotizacion) }}" class="px-4 py-2 rounded-lg border border-gray-200 text-gray-600 text-sm hover:bg-gray-50">Editar</a>
+            @endif
 
+            {{-- Cambios de estado: SOLO admin (marcar enviada, rechazar). --}}
+            @if (auth()->user()->hasRole('admin'))
                 @if ($cotizacion->esEditable() && $cotizacion->estado === 'borrador')
                     <form method="POST" action="{{ route('cotizaciones.estado', $cotizacion) }}">
                         @csrf @method('PATCH')<input type="hidden" name="estado" value="enviada">
                         <button class="px-4 py-2 rounded-lg bg-sweetgo-turquoise text-white text-sm hover:opacity-90">Marcar enviada</button>
                     </form>
                 @endif
-                @if ($cotizacion->esEditable() && in_array($cotizacion->estado, ['borrador','enviada']))
+                @if (in_array($cotizacion->estado, ['borrador','enviada'], true))
                     <form method="POST" action="{{ route('cotizaciones.estado', $cotizacion) }}"
                           onsubmit="return confirm('¿Rechazar esta cotización?')">
                         @csrf @method('PATCH')<input type="hidden" name="estado" value="rechazada">
@@ -135,8 +170,8 @@
             </table>
             @if ($cotizacion->notas)
                 <div class="px-6 py-4 border-t border-gray-100 text-sm">
-                    <p class="text-gray-400 mb-1">Notas</p>
-                    <p class="text-gray-600">{{ $cotizacion->notas }}</p>
+                    <p class="text-gray-400 mb-1">Observaciones</p>
+                    <p class="text-gray-600 whitespace-pre-line">{{ $cotizacion->notas }}</p>
                 </div>
             @endif
         </div>
@@ -320,10 +355,15 @@
                 <div>
                     <h3 class="font-semibold text-gray-800">Envío</h3>
                     @if ($envio)
-                        <p class="text-xs text-gray-500 mt-0.5">
-                            Costo: <span class="font-medium text-gray-700">${{ number_format($envio->costo, 0, ',', '.') }}</span>
-                            · Peso: {{ $envio->peso_kg ? rtrim(rtrim(number_format($envio->peso_kg, 3, '.', ''), '0'), '.') . ' kg' : '—' }}
-                        </p>
+                        <div class="flex flex-wrap items-center gap-2 mt-0.5 text-xs text-gray-500">
+                            <span>Costo: <span class="font-medium text-gray-700">${{ number_format($envio->costo, 0, ',', '.') }}</span></span>
+                            <span>· Peso: {{ $envio->peso_kg ? rtrim(rtrim(number_format($envio->peso_kg, 3, '.', ''), '0'), '.') . ' kg' : '—' }}</span>
+                            @if ($envio->flete_asumido_sweetgo)
+                                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-sweetgo-turquoise-light text-teal-700 font-medium">
+                                    ★ Flete asumido por Sweet Go
+                                </span>
+                            @endif
+                        </div>
                     @else
                         <p class="text-xs text-gray-500 mt-0.5">Configura el envío de esta cotización.</p>
                     @endif
@@ -347,6 +387,12 @@
                     <div>
                         <p class="text-[10px] uppercase tracking-wide text-gray-400">Transportador · Guía</p>
                         <p class="text-gray-700">{{ $envio->transportador ?? '—' }}{{ $envio->guia_numero ? ' · #' . $envio->guia_numero : '' }}</p>
+                        @if ($envio->guia_archivo)
+                            <a href="{{ $envio->guiaUrl() }}" target="_blank" rel="noopener"
+                               class="inline-flex items-center gap-1 mt-1 text-xs text-sweetgo-pink hover:underline">
+                                {{ $envio->guiaEsImagen() ? 'Ver foto de la guía' : 'Ver PDF de la guía' }} ↗
+                            </a>
+                        @endif
                     </div>
                     <div>
                         <p class="text-[10px] uppercase tracking-wide text-gray-400">Fecha estimada</p>
@@ -363,7 +409,7 @@
 
             {{-- Form: configurar o actualizar envío --}}
             @if (! $envio || $envio->estado === 'pendiente')
-                <form method="POST" action="{{ route('envio.store', $cotizacion) }}"
+                <form method="POST" action="{{ route('envio.store', $cotizacion) }}" enctype="multipart/form-data"
                       class="px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     @csrf
                     <div>
@@ -384,11 +430,18 @@
                     </div>
                     <div>
                         <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">
-                            Costo (COP) <span x-show="autoCalculado" x-cloak class="text-sweetgo-turquoise text-[9px]">auto</span>
+                            Costo exacto (COP) <span x-show="autoCalculado" x-cloak class="text-sweetgo-turquoise text-[9px]">auto</span>
                         </label>
                         <input type="number" name="costo" x-model.number="costo" min="0" step="1"
+                               placeholder="Ej: 12500"
                                class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
                         <p x-show="mensajeZona" x-cloak class="text-[10px] text-red-500 mt-1" x-text="mensajeZona"></p>
+                        <label class="mt-2 flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
+                            <input type="checkbox" name="flete_asumido_sweetgo" value="1"
+                                   @checked(old('flete_asumido_sweetgo', $envio?->flete_asumido_sweetgo))
+                                   class="rounded border-gray-300 text-sweetgo-pink focus:ring-sweetgo-pink">
+                            <span>Flete asumido por Sweet Go <span class="text-gray-400">(cliente no lo paga)</span></span>
+                        </label>
                     </div>
 
                     <div class="sm:col-span-3 border-t border-gray-100 pt-3">
@@ -436,7 +489,7 @@
                         <input type="date" name="fecha_estimada" value="{{ old('fecha_estimada', $envio?->fecha_estimada?->toDateString()) }}"
                                class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
                     </div>
-                    <div class="sm:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div class="sm:col-span-3 grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
                             <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Transportador</label>
                             <input type="text" name="transportador" value="{{ old('transportador', $envio?->transportador) }}"
@@ -447,6 +500,22 @@
                             <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Número de guía</label>
                             <input type="text" name="guia_numero" value="{{ old('guia_numero', $envio?->guia_numero) }}"
                                    class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Guía (foto o PDF)</label>
+                            <input type="file" name="guia_archivo" accept="image/jpeg,image/png,image/webp,application/pdf"
+                                   class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-sweetgo-pink-light file:text-sweetgo-pink">
+                            @if ($envio?->guia_archivo)
+                                <p class="text-[10px] text-gray-500 mt-1">
+                                    Actual:
+                                    <a href="{{ $envio->guiaUrl() }}" target="_blank" rel="noopener" class="text-sweetgo-pink hover:underline">
+                                        {{ $envio->guiaEsImagen() ? 'foto cargada' : 'PDF cargado' }} ↗
+                                    </a>
+                                    <span class="text-gray-400">· subir otro para reemplazarlo</span>
+                                </p>
+                            @else
+                                <p class="text-[10px] text-gray-400 mt-1">JPG, PNG, WEBP o PDF · máx 8MB</p>
+                            @endif
                         </div>
                     </div>
                     <div class="sm:col-span-3">

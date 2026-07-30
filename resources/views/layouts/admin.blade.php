@@ -150,6 +150,25 @@
                             <span class="text-xs text-gray-400">{{ $notificaciones['total'] }} en total</span>
                         </div>
                         <div class="max-h-96 overflow-y-auto divide-y divide-gray-100">
+                            @if (! empty($notificaciones['alertas']) && $notificaciones['alertas']->isNotEmpty())
+                                <div class="px-4 py-2 bg-sweetgo-pink-light text-xs font-medium text-sweetgo-pink uppercase tracking-wide flex items-center justify-between">
+                                    <span>Alertas ({{ $notificaciones['alertas']->count() }})</span>
+                                    <form method="POST" action="{{ route('notificaciones.leidas') }}" class="inline">
+                                        @csrf
+                                        <button class="text-[10px] normal-case text-gray-400 hover:text-sweetgo-pink hover:underline">marcar todas leídas</button>
+                                    </form>
+                                </div>
+                                @foreach ($notificaciones['alertas'] as $al)
+                                    <a href="{{ $al->url ?? '#' }}" class="block px-4 py-2 hover:bg-sweetgo-pink-light/30">
+                                        <div class="flex items-start justify-between gap-2">
+                                            <span class="font-medium text-gray-800 text-xs">{{ $al->titulo }}</span>
+                                            <span class="text-[10px] text-gray-400 whitespace-nowrap">{{ $al->created_at->diffForHumans() }}</span>
+                                        </div>
+                                        <div class="text-xs text-gray-600 mt-0.5 whitespace-pre-line line-clamp-6">{{ $al->mensaje }}</div>
+                                    </a>
+                                @endforeach
+                            @endif
+
                             @if ($notificaciones['stockBajo']->isNotEmpty())
                                 <div class="px-4 py-2 bg-red-50 text-xs font-medium text-red-600 uppercase tracking-wide">Stock bajo</div>
                                 @foreach ($notificaciones['stockBajo'] as $p)

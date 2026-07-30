@@ -8,6 +8,7 @@ use App\Models\Envio;
 use App\Models\ZonaEnvio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 
 /**
  * Envíos por cotización. Solo se puede configurar cuando la cotización esté "pagada".
@@ -32,9 +33,19 @@ class EnvioController extends Controller
         $data = $this->validated($request);
         $data['cotizacion_id'] = $cotizacion->id;
         $data['costo'] = $this->calcularCosto($data);
+        $data['flete_asumido_sweetgo'] = $request->boolean('flete_asumido_sweetgo');
 
         // hasOne + unique DB → si ya existe, actualizamos; si no, creamos.
         $envio = $cotizacion->envio()->firstOrNew([]);
+
+        // Guía como archivo (foto o PDF): sube al disco público y reemplaza la anterior si aplica.
+        if ($request->hasFile('guia_archivo')) {
+            if ($envio->guia_archivo) {
+                Storage::disk('public')->delete($envio->guia_archivo);
+            }
+            $data['guia_archivo'] = $request->file('guia_archivo')->store('envios/guias', 'public');
+        }
+
         $envio->fill($data);
         $envio->save();
 
@@ -91,6 +102,7 @@ class EnvioController extends Controller
             'costo' => ['nullable', 'numeric', 'min:0'],
             'transportador' => ['nullable', 'string', 'max:120'],
             'guia_numero' => ['nullable', 'string', 'max:60'],
+            'guia_archivo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:8192'],
             'fecha_estimada' => ['nullable', 'date'],
             'notas' => ['nullable', 'string'],
         ]);

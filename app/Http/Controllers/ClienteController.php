@@ -2,11 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\PlantillaClientesExport;
+use App\Imports\ClientesImport;
 use App\Models\Cliente;
 use App\Models\ListaPrecio;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Maatwebsite\Excel\Facades\Excel;
 
 class ClienteController extends Controller
 {
@@ -208,6 +211,33 @@ class ClienteController extends Controller
                 'orden' => $i,
             ]);
         }
+    }
+
+    /** Procesa la importación masiva de clientes desde Excel/CSV. Solo admin. */
+    public function importar(Request $request)
+    {
+        abort_unless(Auth::user()->hasRole('admin'), 403);
+
+        $request->validate([
+            'archivo' => ['required', 'file', 'mimes:xlsx,xls,csv,txt', 'max:8192'],
+        ], [], ['archivo' => 'archivo']);
+
+        $import = new ClientesImport();
+        Excel::import($import, $request->file('archivo'));
+
+        return redirect()->route('clientes.index')->with(
+            'success',
+            "Importación completada: {$import->creados} creados, {$import->actualizados} actualizados"
+            . ($import->omitidos ? ", {$import->omitidos} omitidos (sin nombre)" : '') . '.'
+        );
+    }
+
+    /** Descarga la plantilla XLSX de clientes con branding Sweet Go. Solo admin. */
+    public function plantilla()
+    {
+        abort_unless(Auth::user()->hasRole('admin'), 403);
+
+        return Excel::download(new PlantillaClientesExport(), 'plantilla_clientes_sweetgo.xlsx');
     }
 
     public function destroy(Cliente $cliente)

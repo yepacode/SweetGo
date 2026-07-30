@@ -111,6 +111,10 @@ Route::middleware(['auth', 'role:admin|vendedor'])->group(function () {
         // Bitácora de auditoría
         Route::get('bitacora', [BitacoraController::class, 'index'])->name('bitacora.index');
 
+        // Importación masiva de clientes (solo admin)
+        Route::get('clientes/plantilla', [ClienteController::class, 'plantilla'])->name('clientes.plantilla');
+        Route::post('clientes/importar', [ClienteController::class, 'importar'])->name('clientes.importar');
+
         // Eliminaciones sensibles
         Route::delete('clientes/{cliente}', [ClienteController::class, 'destroy'])->name('clientes.destroy');
         Route::delete('cotizaciones/{cotizacion}', [CotizacionController::class, 'destroy'])->name('cotizaciones.destroy');
@@ -122,6 +126,12 @@ Route::middleware(['auth', 'role:admin|vendedor'])->group(function () {
     | COMPARTIDO admin + vendedor
     |----------------------------------------------------------------------
     */
+    // Notificaciones dirigidas al usuario (marcar como leídas)
+    Route::post('notificaciones/leidas', function (\Illuminate\Http\Request $r) {
+        \App\Models\Notificacion::where('para_user_id', auth()->id())->whereNull('leida_at')->update(['leida_at' => now()]);
+        return back()->with('success', 'Notificaciones marcadas como leídas.');
+    })->name('notificaciones.leidas');
+
     // Clientes (sin eliminar)
     Route::resource('clientes', ClienteController::class)->except(['destroy']);
 
