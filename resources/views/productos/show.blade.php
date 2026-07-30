@@ -14,12 +14,34 @@
         </div>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" @if ($producto->imagen) x-data="{ zoom: false }" @endif>
         <div class="bg-white rounded-xl border border-sweetgo-pink-light p-6">
             @if ($producto->imagen)
-                <img src="{{ Storage::url($producto->imagen) }}" class="w-full h-56 object-contain object-center rounded-lg border border-gray-100 bg-white p-2">
+                {{-- Miniatura grande con lupa (clic para ampliar) --}}
+                <button type="button" @click="zoom = true"
+                        class="group relative block w-full h-80 rounded-lg border border-gray-100 bg-white overflow-hidden cursor-zoom-in">
+                    <img src="{{ Storage::url($producto->imagen) }}" alt="{{ $producto->nombre }}"
+                         class="w-full h-full object-contain object-center p-3 transition-transform duration-200 group-hover:scale-105">
+                    <span class="absolute bottom-2 right-2 flex items-center gap-1 rounded-full bg-black/60 text-white text-xs px-2.5 py-1 opacity-80 group-hover:opacity-100">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <circle cx="11" cy="11" r="7"/><path stroke-linecap="round" d="M21 21l-4.3-4.3M11 8v6M8 11h6"/>
+                        </svg>
+                        Ampliar
+                    </span>
+                </button>
+
+                {{-- Lightbox a pantalla completa --}}
+                <div x-show="zoom" x-cloak @keydown.escape.window="zoom = false" @click="zoom = false"
+                     class="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4"
+                     x-transition.opacity>
+                    <button type="button" @click="zoom = false"
+                            class="absolute top-4 right-4 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-full w-10 h-10 flex items-center justify-center text-2xl leading-none">&times;</button>
+                    <img src="{{ Storage::url($producto->imagen) }}" alt="{{ $producto->nombre }}"
+                         @click.stop
+                         class="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl bg-white">
+                </div>
             @else
-                <div class="w-full h-56 rounded-lg bg-sweetgo-pink-light flex items-center justify-center text-6xl text-sweetgo-pink">✦</div>
+                <div class="w-full h-80 rounded-lg bg-sweetgo-pink-light flex items-center justify-center text-6xl text-sweetgo-pink">✦</div>
             @endif
         </div>
 
