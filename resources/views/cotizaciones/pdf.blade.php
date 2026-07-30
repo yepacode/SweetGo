@@ -24,15 +24,14 @@
         .box { background: #FBF7FB; border: 1px solid #F9E9F8; border-radius: 8px; padding: 12px 14px; }
         .footer { margin-top: 28px; padding-top: 12px; border-top: 1px solid #eee; font-size: 10px; color: #9CA3AF; text-align: center; }
 
-        /* Marca de agua: logo grande centrado, opacidad muy baja, detrás del contenido */
+        /* Marca de agua: logo centrado (horizontal y vertical), recto, opacidad baja, detrás del contenido */
         .watermark {
             position: fixed;
-            top: 28%;
-            left: 9%;
-            width: 82%;
-            opacity: 0.07;
+            top: 40%;
+            left: 20%;
+            width: 60%;
+            opacity: 0.06;
             z-index: -1;
-            transform: rotate(-18deg);
         }
     </style>
 </head>
