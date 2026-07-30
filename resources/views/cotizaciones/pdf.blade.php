@@ -86,18 +86,20 @@
         <table class="items" style="margin-top:20px;">
             <thead>
                 <tr>
-                    <th width="6%">#</th>
+                    <th width="5%">#</th>
                     <th>Producto</th>
-                    <th class="center" width="10%">Cant.</th>
-                    <th class="right" width="18%">Precio unit.</th>
-                    <th class="right" width="18%">Subtotal</th>
+                    <th width="14%">Ref.</th>
+                    <th class="center" width="9%">Cant.</th>
+                    <th class="right" width="16%">Precio unit.</th>
+                    <th class="right" width="16%">Subtotal</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach ($cotizacion->items as $index => $item)
                     <tr>
                         <td class="muted">{{ $index + 1 }}</td>
-                        <td>{{ $item->nombre }}@if ($item->referencia)<span class="muted"> · {{ $item->referencia }}</span>@endif</td>
+                        <td>{{ $item->nombre }}</td>
+                        <td class="muted">{{ $item->referencia ?? '—' }}</td>
                         <td class="center">{{ $item->cantidad }}</td>
                         <td class="right">${{ number_format($item->precio_unitario, 0, ',', '.') }}</td>
                         <td class="right">${{ number_format($item->subtotal, 0, ',', '.') }}</td>
@@ -106,7 +108,7 @@
             </tbody>
             <tfoot>
                 <tr>
-                    <td colspan="5" class="muted" style="padding-top:6px; font-size:10px;">
+                    <td colspan="6" class="muted" style="padding-top:6px; font-size:10px;">
                         Total de ítems: <strong>{{ $cotizacion->items->count() }}</strong> ·
                         Unidades: <strong>{{ $cotizacion->items->sum('cantidad') }}</strong>
                     </td>
