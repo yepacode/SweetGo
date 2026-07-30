@@ -63,7 +63,7 @@
                      :class="p.agotado && 'opacity-80'">
                     <div class="aspect-square bg-sweetgo-pink-light/50 flex items-center justify-center overflow-hidden relative">
                         <template x-if="p.imagen">
-                            <img :src="p.imagen" :alt="p.nombre" class="w-full h-full object-cover" :class="p.agotado && 'grayscale'">
+                            <img :src="p.imagen" :alt="p.nombre" class="w-full h-full object-contain object-center p-2" :class="p.agotado && 'grayscale'">
                         </template>
                         <template x-if="!p.imagen">
                             <span class="text-4xl text-sweetgo-pink">&#10022;</span>

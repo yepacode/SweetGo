@@ -97,7 +97,7 @@
                                 <div class="flex items-center gap-3">
                                     <div class="w-10 h-10 rounded-lg bg-sweetgo-pink-light flex items-center justify-center overflow-hidden flex-shrink-0">
                                         @if ($p->imagen)
-                                            <img src="{{ Storage::url($p->imagen) }}" alt="" class="w-full h-full object-cover">
+                                            <img src="{{ Storage::url($p->imagen) }}" alt="" class="w-full h-full object-contain">
                                         @else
                                             <span class="text-sweetgo-pink text-lg">✦</span>
                                         @endif

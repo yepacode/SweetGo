@@ -198,7 +198,7 @@
         <div class="bg-white rounded-xl border border-sweetgo-pink-light p-6">
             <label class="block text-sm font-medium text-gray-600 mb-2">Imagen</label>
             @if ($p?->imagen)
-                <img src="{{ Storage::url($p->imagen) }}" alt="" class="w-full h-40 object-cover rounded-lg mb-3 border border-gray-100">
+                <img src="{{ Storage::url($p->imagen) }}" alt="" class="w-full h-40 object-contain object-center bg-white p-2 rounded-lg mb-3 border border-gray-100">
             @else
                 <div class="w-full h-40 rounded-lg bg-sweetgo-pink-light flex items-center justify-center mb-3 text-4xl text-sweetgo-pink">✦</div>
             @endif

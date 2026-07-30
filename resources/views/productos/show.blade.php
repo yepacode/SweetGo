@@ -17,7 +17,7 @@
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div class="bg-white rounded-xl border border-sweetgo-pink-light p-6">
             @if ($producto->imagen)
-                <img src="{{ Storage::url($producto->imagen) }}" class="w-full h-56 object-cover rounded-lg border border-gray-100">
+                <img src="{{ Storage::url($producto->imagen) }}" class="w-full h-56 object-contain object-center rounded-lg border border-gray-100 bg-white p-2">
             @else
                 <div class="w-full h-56 rounded-lg bg-sweetgo-pink-light flex items-center justify-center text-6xl text-sweetgo-pink">✦</div>
             @endif

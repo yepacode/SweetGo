@@ -217,7 +217,7 @@
                         <div x-show="!carritoAbierto" @click="verDetalle(p)"
                              class="aspect-[4/3] bg-white flex items-center justify-center overflow-hidden cursor-zoom-in">
                             <template x-if="p.imagen">
-                                <img :src="p.imagen" :alt="p.nombre" class="w-full h-full object-cover">
+                                <img :src="p.imagen" :alt="p.nombre" class="w-full h-full object-contain object-center p-2">
                             </template>
                             <template x-if="!p.imagen">
                                 <span class="text-3xl text-sweetgo-pink-light">&#10022;</span>
@@ -450,7 +450,7 @@
                             {{-- Imagen --}}
                             <div class="aspect-square bg-sweetgo-pink-light/30 flex items-center justify-center overflow-hidden">
                                 <template x-if="productoDetalle.imagen">
-                                    <img :src="productoDetalle.imagen" :alt="productoDetalle.nombre" class="w-full h-full object-cover">
+                                    <img :src="productoDetalle.imagen" :alt="productoDetalle.nombre" class="w-full h-full object-contain object-center p-3">
                                 </template>
                                 <template x-if="!productoDetalle.imagen">
                                     <span class="text-6xl text-sweetgo-pink">&#10022;</span>
