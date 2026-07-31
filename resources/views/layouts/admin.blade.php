@@ -15,7 +15,8 @@
     </style>
 </head>
 <body class="font-sans antialiased bg-[#FDF7FB] text-gray-800">
-<div x-data="{ sidebarOpen: false }" class="min-h-screen flex">
+<div x-data="{ sidebarOpen: false }" class="min-h-screen flex"
+     x-init="window.addEventListener('pageshow', e => { if (e.persisted) sidebarOpen = false })">
 
     {{-- ===================== SIDEBAR ===================== --}}
     <aside
@@ -61,7 +62,7 @@
                     $exists = \Illuminate\Support\Facades\Route::has($m['route']);
                     $active = $exists && request()->routeIs($m['route']);
                 @endphp
-                <a href="{{ $exists ? route($m['route']) : '#' }}"
+                <a href="{{ $exists ? route($m['route']) : '#' }}" @click="sidebarOpen = false"
                    @class([
                        'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition',
                        'bg-sweetgo-pink text-white shadow-sm' => $active,
