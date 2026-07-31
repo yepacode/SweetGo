@@ -104,7 +104,16 @@ class ProductosImport implements ToCollection, WithHeadingRow
                 ? (int) $row['stock_maximo'] : null;
             $stock = (int) ($row['stock'] ?? 0);
 
-            $existente = Producto::where('nombre', $nombre)->first();
+            // Match: primero por referencia (más estable si el cliente renombra); si no, por nombre.
+            // Evita crear duplicados cuando se re-corre el import con el mismo Excel.
+            $referencia = trim((string) ($row['referencia'] ?? '')) ?: null;
+            $existente = null;
+            if ($referencia !== null) {
+                $existente = Producto::where('referencia', $referencia)->first();
+            }
+            if (! $existente) {
+                $existente = Producto::where('nombre', $nombre)->first();
+            }
 
             if ($existente) {
                 $existente->update([
