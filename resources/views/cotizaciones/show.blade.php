@@ -265,7 +265,32 @@
                     </div>
                 </div>
                 @if ($saldo > 0)
-                    <p class="text-[11px] text-gray-500 mt-3 italic">💡 Para registrar un abono, usá el formulario «Registrar pago» debajo con el monto que el cliente esté pagando.</p>
+                    <p class="text-[11px] text-gray-500 mt-3 italic">💡 Para registrar un abono, usá el formulario «Registrar abono al crédito» debajo con el monto que el cliente esté pagando.</p>
+                @endif
+
+                {{-- Historial de abonos (pagos no-crédito aprobados sobre este crédito). --}}
+                @php
+                    $historial = $cotizacion->pagosRecientes->where('metodo', '!=', 'credito')->where('estado', 'aprobado')->values();
+                @endphp
+                @if ($historial->isNotEmpty())
+                    <div class="mt-4 pt-3 border-t border-white/60">
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500 font-medium mb-2">📜 Historial de abonos</p>
+                        <ol class="relative border-l-2 border-emerald-200 pl-4 space-y-2">
+                            @foreach ($historial as $abono)
+                                <li class="relative">
+                                    <span class="absolute -left-[22px] top-1 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-white"></span>
+                                    <div class="flex flex-wrap items-baseline justify-between gap-2 text-xs">
+                                        <span class="font-semibold text-emerald-700">+${{ number_format($abono->monto, 0, ',', '.') }}</span>
+                                        <span class="text-gray-500">{{ $abono->metodoLabel() }}</span>
+                                        <span class="text-gray-400">{{ $abono->aprobado_at?->format('d/m/Y') ?? $abono->created_at->format('d/m/Y') }}</span>
+                                    </div>
+                                    @if ($abono->referencia)
+                                        <p class="text-[10px] text-gray-500 italic">Ref: {{ $abono->referencia }}</p>
+                                    @endif
+                                </li>
+                            @endforeach
+                        </ol>
+                    </div>
                 @endif
             </div>
         @endif

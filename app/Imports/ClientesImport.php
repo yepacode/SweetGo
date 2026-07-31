@@ -22,6 +22,7 @@ class ClientesImport implements ToCollection, WithHeadingRow
     public int $creados = 0;
     public int $actualizados = 0;
     public int $omitidos = 0;
+    public array $errores = []; // [fila_num => mensaje]
 
     /** @var array<string, int> mapa slug/nombre_lower → id */
     private array $mapaListas = [];
@@ -52,7 +53,8 @@ class ClientesImport implements ToCollection, WithHeadingRow
     {
         $userId = Auth::id();
 
-        foreach ($rows as $row) {
+        foreach ($rows as $idx => $row) {
+            $filaNum = $idx + 2; // header cuenta como 1
             $nombre = trim((string) ($row['nombre'] ?? ''));
             if ($nombre === '') {
                 $this->omitidos++;
@@ -74,17 +76,26 @@ class ClientesImport implements ToCollection, WithHeadingRow
                 'activo' => true,
             ];
 
-            $existente = $documento ? Cliente::where('documento', $documento)->first() : null;
+            // Cada fila en su propio try/catch: si una falla (documento dup ya creado en la misma
+            // corrida, valor inválido, etc.) el import continúa con las siguientes en vez de cortarse.
+            try {
+                $existente = $documento ? Cliente::where('documento', $documento)->first() : null;
 
-            if ($existente) {
-                $existente->update(array_filter($payload, fn ($v) => $v !== null && $v !== ''));
-                $this->actualizados++;
-            } else {
-                Cliente::create(array_merge($payload, [
-                    'documento' => $documento,
-                    'user_id' => $userId,
-                ]));
-                $this->creados++;
+                if ($existente) {
+                    $existente->update(array_filter($payload, fn ($v) => $v !== null && $v !== ''));
+                    $this->actualizados++;
+                } else {
+                    Cliente::create(array_merge($payload, [
+                        'documento' => $documento,
+                        'user_id' => $userId,
+                    ]));
+                    $this->creados++;
+                }
+            } catch (\Illuminate\Database\QueryException $e) {
+                $motivo = str_contains($e->getMessage(), '1062') ? 'documento duplicado' : 'error de BD';
+                $this->errores[$filaNum] = "Fila {$filaNum} («{$nombre}»): {$motivo}.";
+            } catch (\Throwable $e) {
+                $this->errores[$filaNum] = "Fila {$filaNum} («{$nombre}»): " . $e->getMessage();
             }
         }
     }

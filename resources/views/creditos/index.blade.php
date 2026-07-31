@@ -30,9 +30,14 @@
         <div class="bg-white rounded-xl border border-emerald-200 p-4">
             <p class="text-[10px] uppercase tracking-wide text-emerald-600 mb-1">Al día</p>
             <p class="text-2xl font-bold text-emerald-600">
-                ${{ number_format($stats['total_saldo'] - $stats['total_vencido'] - $stats['total_por_vencer'], 0, ',', '.') }}
+                ${{ number_format($stats['total_al_dia'], 0, ',', '.') }}
             </p>
-            <p class="text-xs text-emerald-500 mt-1">Dentro del plazo</p>
+            <p class="text-xs text-emerald-500 mt-1">
+                Dentro del plazo
+                @if ($stats['total_sin_plazo'] > 0)
+                    · <span class="text-gray-400">+${{ number_format($stats['total_sin_plazo'], 0, ',', '.') }} sin plazo</span>
+                @endif
+            </p>
         </div>
     </div>
 

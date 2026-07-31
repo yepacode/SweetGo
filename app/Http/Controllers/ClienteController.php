@@ -225,11 +225,15 @@ class ClienteController extends Controller
         $import = new ClientesImport();
         Excel::import($import, $request->file('archivo'));
 
-        return redirect()->route('clientes.index')->with(
-            'success',
-            "Importación completada: {$import->creados} creados, {$import->actualizados} actualizados"
-            . ($import->omitidos ? ", {$import->omitidos} omitidos (sin nombre)" : '') . '.'
-        );
+        $mensaje = "Importación completada: {$import->creados} creados, {$import->actualizados} actualizados"
+            . ($import->omitidos ? ", {$import->omitidos} omitidos (sin nombre)" : '') . '.';
+
+        $flash = ['success' => $mensaje];
+        if (! empty($import->errores)) {
+            $flash['warning'] = 'Algunas filas no se procesaron: ' . implode(' ', array_slice($import->errores, 0, 5));
+        }
+
+        return redirect()->route('clientes.index')->with($flash);
     }
 
     /** Descarga la plantilla XLSX de clientes con branding Sweet Go. Solo admin. */

@@ -24,6 +24,11 @@
                 <option value="{{ $e }}" @selected(request('estado')===$e)>{{ ucfirst(str_replace('_',' ', $e)) }}</option>
             @endforeach
         </select>
+        <select name="credito" onchange="this.form.submit()" class="rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+            <option value="">Crédito (cualquiera)</option>
+            <option value="vencido"    @selected(request('credito')==='vencido')>🔴 Crédito vencido</option>
+            <option value="por_vencer" @selected(request('credito')==='por_vencer')>🟠 Crédito por vencer (≤7d)</option>
+        </select>
         <select name="estado_envio" onchange="this.form.submit()" class="rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
             <option value="">Todos los envíos</option>
             <option value="sin_envio" @selected(request('estado_envio')==='sin_envio')>Sin envío configurado</option>

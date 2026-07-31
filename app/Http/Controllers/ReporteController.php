@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Exports\ClientesExport;
 use App\Exports\CotizacionesExport;
+use App\Exports\CreditosExport;
 use App\Exports\InventarioExport;
 use App\Models\Cliente;
 use App\Models\Cotizacion;
@@ -80,6 +81,35 @@ class ReporteController extends Controller
         $pdf = Pdf::loadView('reportes.pdf.cotizaciones', compact('cotizaciones', 'total', 'desde', 'hasta'))->setPaper('letter', 'landscape');
 
         return $pdf->stream('cotizaciones_sweetgo_'.date('Ymd').'.pdf');
+    }
+
+    // ---------- Cuentas por cobrar (créditos) ----------
+    public function creditosExcel(Request $request)
+    {
+        return Excel::download(
+            new CreditosExport($request->cliente ?: null, $request->aging ?: null),
+            'cuentas_por_cobrar_sweetgo_'.date('Ymd').'.xlsx'
+        );
+    }
+
+    public function creditosPdf(Request $request)
+    {
+        $todos = Cotizacion::enCredito()
+            ->with(['cliente', 'vendedor', 'pagos'])
+            ->when($request->cliente, fn ($q) => $q->where('cliente_id', $request->cliente))
+            ->orderByDesc('id')
+            ->get();
+
+        if ($request->filled('aging') && in_array($request->aging, ['vencido', 'por_vencer', 'al_dia', 'sin_plazo'], true)) {
+            $todos = $todos->filter(fn ($c) => $c->agingCredito() === $request->aging)->values();
+        }
+
+        $totalSaldo = (float) $todos->sum(fn ($c) => $c->saldoCredito());
+        $totalVencido = (float) $todos->filter(fn ($c) => $c->agingCredito() === 'vencido')->sum(fn ($c) => $c->saldoCredito());
+
+        $pdf = Pdf::loadView('reportes.pdf.creditos', compact('todos', 'totalSaldo', 'totalVencido'))->setPaper('letter', 'landscape');
+
+        return $pdf->stream('cuentas_por_cobrar_sweetgo_'.date('Ymd').'.pdf');
     }
 
     // ---------- Clientes ----------

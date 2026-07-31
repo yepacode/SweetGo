@@ -44,6 +44,9 @@ class CreditoController extends Controller
             'total_saldo' => (float) $todos->sum(fn ($c) => $c->saldoCredito()),
             'total_vencido' => (float) $todos->filter(fn ($c) => $c->agingCredito() === 'vencido')->sum(fn ($c) => $c->saldoCredito()),
             'total_por_vencer' => (float) $todos->filter(fn ($c) => $c->agingCredito() === 'por_vencer')->sum(fn ($c) => $c->saldoCredito()),
+            // Calculamos "al_dia" y "sin_plazo" explícitos (no por resta) para no mezclar buckets.
+            'total_al_dia' => (float) $todos->filter(fn ($c) => $c->agingCredito() === 'al_dia')->sum(fn ($c) => $c->saldoCredito()),
+            'total_sin_plazo' => (float) $todos->filter(fn ($c) => $c->agingCredito() === 'sin_plazo')->sum(fn ($c) => $c->saldoCredito()),
             'cuentas_vencidas' => $todos->filter(fn ($c) => $c->agingCredito() === 'vencido')->count(),
         ];
 

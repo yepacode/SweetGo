@@ -41,6 +41,7 @@
                 ['titulo' => 'Inventario', 'desc' => 'Productos, precios y stock actual.', 'excel' => 'reportes.inventario.excel', 'pdf' => 'reportes.inventario.pdf', 'icon' => 'M4 7v10a2 2 0 002 2h12a2 2 0 002-2V7M4 7l2-3h12l2 3M9 12h6'],
                 ['titulo' => 'Cotizaciones', 'desc' => 'Todas las cotizaciones con su estado y total.', 'excel' => 'reportes.cotizaciones.excel', 'pdf' => 'reportes.cotizaciones.pdf', 'icon' => 'M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z'],
                 ['titulo' => 'Clientes', 'desc' => 'Directorio con contacto y lista de precios.', 'excel' => 'reportes.clientes.excel', 'pdf' => 'reportes.clientes.pdf', 'icon' => 'M17 20h5v-2a4 4 0 00-3-3.87M9 20H4v-2a4 4 0 013-3.87m6-1.13a4 4 0 10-4-4 4 4 0 004 4z'],
+                ['titulo' => 'Cuentas por cobrar', 'desc' => 'Créditos vigentes con saldo, aging y vencimiento.', 'excel' => 'reportes.creditos.excel', 'pdf' => 'reportes.creditos.pdf', 'icon' => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'],
             ];
         @endphp
         @php

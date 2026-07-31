@@ -72,9 +72,23 @@ class CotizacionController extends Controller
             ->when($request->filled('estado'), fn ($q) => $q->where('estado', $request->estado))
             ->when($request->filled('estado_envio'), function ($q) use ($request) {
                 if ($request->estado_envio === 'sin_envio') {
-                    $q->whereDoesntHave('envio');
+                    // Solo tiene sentido para pagadas: son las únicas con badge amber "Sin envío".
+                    // Antes traía borradores/créditos/enviadas sin envío, confundía al usuario.
+                    $q->where('estado', 'pagada')->whereDoesntHave('envio');
                 } else {
                     $q->whereHas('envio', fn ($e) => $e->where('estado', $request->estado_envio));
+                }
+            })
+            ->when($request->filled('credito'), function ($q) use ($request) {
+                // Atajo: filtrar créditos vencidos / por vencer (≤7 días) desde el listado general.
+                if ($request->credito === 'vencido') {
+                    $q->where('estado', 'credito')
+                      ->whereHas('pagos', fn ($p) => $p->where('metodo','credito')->where('estado','aprobado')
+                          ->whereDate('fecha_vencimiento', '<', now()->toDateString()));
+                } elseif ($request->credito === 'por_vencer') {
+                    $q->where('estado', 'credito')
+                      ->whereHas('pagos', fn ($p) => $p->where('metodo','credito')->where('estado','aprobado')
+                          ->whereBetween('fecha_vencimiento', [now()->toDateString(), now()->addDays(7)->toDateString()]));
                 }
             })
             ->when($request->filled('buscar'), function ($q) use ($request) {

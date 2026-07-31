@@ -26,6 +26,15 @@
         </div>
     </div>
 
+    {{-- Errores globales del import (mimes, tamaño, etc.). El modal puede haberse cerrado, así que el mensaje va afuera. --}}
+    @if ($errors->any())
+        <div class="mb-4 rounded-lg bg-red-50 border border-red-200 text-red-600 px-4 py-3 text-sm">
+            <ul class="list-disc list-inside space-y-0.5">
+                @foreach ($errors->all() as $error)<li>{{ $error }}</li>@endforeach
+            </ul>
+        </div>
+    @endif
+
     @if (auth()->user()->hasRole('admin'))
         <div id="mdImportClientes" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
             <div class="bg-white rounded-xl border border-sweetgo-pink-light shadow-lg w-full max-w-md p-6 relative">

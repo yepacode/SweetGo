@@ -258,6 +258,11 @@
                 {{ session('error') }}
             </div>
         @endif
+        @if (session('warning'))
+            <div class="mx-4 lg:mx-8 mt-4 rounded-lg bg-amber-50 border border-amber-200 text-amber-700 px-4 py-3 text-sm">
+                {{ session('warning') }}
+            </div>
+        @endif
 
         <main class="flex-1 p-4 lg:p-8">
             {{ $slot ?? '' }}

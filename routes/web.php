@@ -107,6 +107,8 @@ Route::middleware(['auth', 'role:admin|vendedor'])->group(function () {
         Route::get('reportes/cotizaciones/pdf', [ReporteController::class, 'cotizacionesPdf'])->name('reportes.cotizaciones.pdf');
         Route::get('reportes/clientes/excel', [ReporteController::class, 'clientesExcel'])->name('reportes.clientes.excel');
         Route::get('reportes/clientes/pdf', [ReporteController::class, 'clientesPdf'])->name('reportes.clientes.pdf');
+        Route::get('reportes/creditos/excel', [ReporteController::class, 'creditosExcel'])->name('reportes.creditos.excel');
+        Route::get('reportes/creditos/pdf', [ReporteController::class, 'creditosPdf'])->name('reportes.creditos.pdf');
 
         // Bitácora de auditoría
         Route::get('bitacora', [BitacoraController::class, 'index'])->name('bitacora.index');
