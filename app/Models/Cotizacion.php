@@ -31,12 +31,13 @@ class Cotizacion extends Model
         'stock_descontado' => 'boolean',
     ];
 
-    public const ESTADOS = ['borrador', 'enviada', 'pendiente_revision_pago', 'aprobada', 'rechazada', 'pagada'];
+    public const ESTADOS = ['borrador', 'enviada', 'pendiente_revision_pago', 'aprobada', 'rechazada', 'pagada', 'credito'];
 
-    /** Estados en los que la cotización todavía puede recibir cambios estructurales (agregar/quitar items). */
-    // Cotización se puede editar únicamente mientras es borrador (antes de que se marque "enviada").
-    // Cambio jul-2026: antes también en 'enviada', ahora se congela al enviarla.
+    /** Estados en los que un vendedor puede editar su propia cotización (sin implicar reponer stock). */
     public const EDITABLES = ['borrador'];
+
+    /** Estados en los que un admin puede editar (todos menos rechazada). Ajusta stock y estado automáticamente. */
+    public const EDITABLES_ADMIN = ['borrador', 'enviada', 'pendiente_revision_pago', 'aprobada', 'pagada', 'credito'];
 
     public function cliente()
     {
@@ -162,19 +163,99 @@ class Cotizacion extends Model
 
     /**
      * ¿Este usuario puede editar la cotización?
-     * - Admin: cualquier cotización que esté en estado editable (borrador).
-     * - Vendedor: solo si es SU propia cotización y está en borrador.
-     * Regla del cliente (jul-2026): "editar en todo momento antes de que se envíe".
+     * - Admin: puede editar en cualquier estado excepto `rechazada`. Al guardar, el sistema
+     *   ajusta el stock automáticamente si ya estaba descontado y recalcula el estado según
+     *   los pagos vs el nuevo total.
+     * - Vendedor: solo si es SU propia cotización y está en `borrador`.
+     * Reglas: "editar antes de enviar" (vendedor) + "editar en cualquier momento si el cliente
+     * pide más/menos" (admin, jul-2026).
      */
     public function puedeEditar(?\App\Models\User $user): bool
     {
-        if (! $user || ! $this->esEditable()) {
-            return false;
-        }
+        if (! $user) return false;
+
         if ($user->hasRole('admin')) {
-            return true;
+            return in_array($this->estado, self::EDITABLES_ADMIN, true);
         }
-        return $this->user_id === $user->id;
+
+        // Vendedor: solo su propio borrador y sin pagos comprometidos.
+        return $this->user_id === $user->id && $this->esEditable();
+    }
+
+    /**
+     * Ajusta el stock según el delta entre los items previos y los nuevos.
+     * Solo se ejecuta cuando la cotización tenía stock_descontado=true (ya se había aprobado).
+     * Devuelve una lista de mensajes descriptivos por movimiento (para bitácora / warnings).
+     *
+     * $itemsAntes: array de arrays [producto_id, cantidad] tomados ANTES del update.
+     * $itemsDespues: array de arrays [producto_id, cantidad] con los items recién guardados.
+     */
+    public function ajustarStockPorEdicion(array $itemsAntes, array $itemsDespues): array
+    {
+        if (! $this->stock_descontado) {
+            return []; // aún no había impactado stock, los items nuevos lo harán al aprobar
+        }
+
+        $antes = collect($itemsAntes)->groupBy('producto_id')->map(fn ($grp) => (int) $grp->sum('cantidad'));
+        $despues = collect($itemsDespues)->groupBy('producto_id')->map(fn ($grp) => (int) $grp->sum('cantidad'));
+
+        $ids = $antes->keys()->merge($despues->keys())->unique();
+        $movimientos = [];
+
+        foreach ($ids as $pid) {
+            if (! $pid) continue;
+            $delta = (int) $despues->get($pid, 0) - (int) $antes->get($pid, 0);
+            if ($delta === 0) continue;
+
+            $producto = \App\Models\Producto::find($pid);
+            if (! $producto) continue;
+
+            if ($delta > 0) {
+                // Aumentó la cantidad → salida adicional de stock
+                $producto->registrarMovimiento('salida', $delta, "Ajuste por edición de {$this->numero}", $this->numero);
+                $movimientos[] = "−{$delta} «{$producto->nombre}»";
+            } else {
+                // Bajó la cantidad → repone stock
+                $producto->registrarMovimiento('entrada', abs($delta), "Reposición por edición de {$this->numero}", $this->numero);
+                $movimientos[] = "+".abs($delta)." «{$producto->nombre}»";
+            }
+        }
+
+        return $movimientos;
+    }
+
+    /**
+     * Recalcula el estado después de una edición admin, según pagos vs nuevo total.
+     * Devuelve el estado anterior (para diff / warning) o null si no cambia.
+     */
+    public function recalcularEstadoPorEdicion(): ?string
+    {
+        $anterior = $this->estado;
+        if (in_array($anterior, ['borrador', 'rechazada'], true)) {
+            return null; // borradores no cambian; rechazadas no se editan
+        }
+
+        $totalHoy = (float) $this->total;
+        $noCredAprobado = (float) $this->montoPagadoAprobadoSinCredito();
+        $todoAprobado = (float) $this->montoPagadoAprobado();
+        $pendiente = (float) $this->pagos()->where('estado', 'pendiente')->sum('monto');
+
+        if ($noCredAprobado + 0.01 >= $totalHoy) {
+            $nuevo = 'pagada';
+        } elseif ($todoAprobado + 0.01 >= $totalHoy) {
+            $nuevo = 'credito';
+        } elseif ($pendiente > 0) {
+            $nuevo = 'pendiente_revision_pago';
+        } else {
+            // Ya había sido enviada/aprobada/etc., la mantenemos como 'enviada' (no volvemos a borrador).
+            $nuevo = 'enviada';
+        }
+
+        if ($nuevo !== $anterior) {
+            $this->update(['estado' => $nuevo]);
+            return $anterior;
+        }
+        return null;
     }
 
     /** ¿Los pagos activos cubren ya el total? Comparación decimal segura (bccomp). */

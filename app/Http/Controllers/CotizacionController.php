@@ -212,13 +212,33 @@ class CotizacionController extends Controller
         $antesTotal = (float) $cotizacion->total;
         $antesNotas = (string) $cotizacion->notas;
 
-        DB::transaction(function () use ($cotizacion, $data, $updates) {
+        $estadoAntes = $cotizacion->estado;
+
+        try {
+        [$movimientosStock, $estadoRecalculado] = DB::transaction(function () use ($cotizacion, $data, $updates, $antesItems) {
             $cotizacion->update($updates);
 
             $cotizacion->items()->delete();
             $this->guardarItems($cotizacion, $data['items']);
             $cotizacion->recalcularTotales();
+            $cotizacion->refresh()->load('items');
+
+            // Si la cotización ya había descontado stock (aprobada/pagada), ajustamos el delta
+            // por producto: reponer lo que se quitó y descontar lo que se agregó, atómico.
+            $itemsDespues = $cotizacion->items->map(fn ($i) => ['producto_id' => (int) $i->producto_id, 'cantidad' => (int) $i->cantidad])->all();
+            $itemsAntesSimple = collect($antesItems)->map(fn ($i) => ['producto_id' => (int) $i['producto_id'], 'cantidad' => (int) $i['cantidad']])->all();
+            $movs = $cotizacion->ajustarStockPorEdicion($itemsAntesSimple, $itemsDespues);
+
+            // Recalculamos el estado (por si el nuevo total no cuadra con los pagos aprobados).
+            $prev = $cotizacion->recalcularEstadoPorEdicion();
+
+            return [$movs, $prev];
         });
+        } catch (\RuntimeException $e) {
+            return redirect()->route('cotizaciones.edit', $cotizacion)
+                ->withInput()
+                ->with('error', 'No se pudo actualizar: ' . $e->getMessage());
+        }
 
         // Regla jul-2026: si el que editó es un vendedor (no admin) y la cotización está en borrador,
         // avisar al admin qué cambió y el estado de pago actual.
@@ -227,8 +247,16 @@ class CotizacionController extends Controller
             $this->notificarEdicionVendedor($cotizacion, $antesItems, $antesTotal, $antesNotas);
         }
 
-        return redirect()->route('cotizaciones.show', $cotizacion)
-            ->with('success', "Cotización {$cotizacion->numero} actualizada.");
+        // Mensaje flash: describe stock ajustado + cambio de estado (si hubo).
+        $mensaje = "Cotización {$cotizacion->numero} actualizada.";
+        if (! empty($movimientosStock)) {
+            $mensaje .= ' Stock ajustado: ' . implode(', ', $movimientosStock) . '.';
+        }
+        if ($estadoRecalculado) {
+            $mensaje .= " Estado pasó de «{$estadoRecalculado}» a «{$cotizacion->fresh()->estadoLabel()}» por el ajuste del total.";
+        }
+
+        return redirect()->route('cotizaciones.show', $cotizacion)->with('success', $mensaje);
     }
 
     /**
