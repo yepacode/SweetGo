@@ -18,6 +18,12 @@
                 @endphp
                 @if ($cotizacion->estado === 'pagada')
                     <span class="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-medium">✓ Pagada</span>
+                @elseif ($cotizacion->estado === 'credito')
+                    {{-- Cotización aprobada y despachada pero la plata NO entró: deuda por el total. --}}
+                    <span class="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium"
+                          title="Deuda a crédito: ${{ number_format($totalCotHdr, 0, ',', '.') }}">
+                        A crédito · ${{ number_format($totalCotHdr, 0, ',', '.') }}
+                    </span>
                 @elseif (! in_array($cotizacion->estado, ['borrador','rechazada'], true) && $saldoHdr > 0)
                     <span class="inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium"
                           title="Saldo pendiente: ${{ number_format($saldoHdr, 0, ',', '.') }}">

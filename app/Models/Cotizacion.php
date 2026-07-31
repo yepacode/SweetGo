@@ -82,6 +82,21 @@ class Cotizacion extends Model
         return (string) $this->pagos()->where('estado', 'aprobado')->sum('monto');
     }
 
+    /** Suma de pagos APROBADOS excluyendo créditos (solo dinero real: efectivo, transferencia, tarjeta). */
+    public function montoPagadoAprobadoSinCredito(): string
+    {
+        return (string) $this->pagos()
+            ->where('estado', 'aprobado')
+            ->where('metodo', '!=', 'credito')
+            ->sum('monto');
+    }
+
+    /** ¿Los pagos aprobados NO-crédito cubren el total? (para pasar a estado `pagada`). */
+    public function pagosNoCreditoAprobadosCubrenTotal(): bool
+    {
+        return bccomp($this->montoPagadoAprobadoSinCredito(), (string) $this->total, 2) >= 0;
+    }
+
     /**
      * Cotización editable = está en un estado editable Y no tiene pagos activos (pendientes ni aprobados).
      * Los pagos rechazados no bloquean (se pueden volver a subir).
@@ -272,6 +287,7 @@ class Cotizacion extends Model
             'pendiente_revision_pago'  => 'bg-yellow-100 text-yellow-700',
             'aprobada'                 => 'bg-green-100 text-green-700',
             'pagada'                   => 'bg-emerald-100 text-emerald-700',
+            'credito'                  => 'bg-amber-100 text-amber-700',
             'rechazada'                => 'bg-red-100 text-red-600',
             default                    => 'bg-gray-100 text-gray-600',
         };
@@ -285,6 +301,7 @@ class Cotizacion extends Model
             'pendiente_revision_pago'  => 'Pendiente revisión pago',
             'aprobada'                 => 'Aprobada',
             'pagada'                   => 'Pagada',
+            'credito'                  => 'A crédito',
             'rechazada'                => 'Rechazada',
             default                    => ucfirst($this->estado),
         };

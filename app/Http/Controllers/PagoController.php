@@ -21,7 +21,7 @@ class PagoController extends Controller
         }
     }
 
-    /** Vendedor registra un pago sobre una cotización enviada/borrador. */
+    /** Vendedor registra un pago sobre una cotización enviada/borrador/a crédito. */
     public function store(Request $request, Cotizacion $cotizacion)
     {
         $this->autorizarCotizacion($cotizacion);
@@ -113,9 +113,23 @@ class PagoController extends Controller
             ]);
 
             $lockedCot->refresh();
-            if ($lockedCot->pagosAprobadosCubrenTotal() && ! $lockedCot->stock_descontado) {
-                $lockedCot->aprobar();                  // descuenta stock una sola vez (flag interno)
+
+            // Regla: si con solo pagos NO-crédito (dinero real) ya cubre el total → estado "pagada".
+            // Sino, si TODOS los aprobados (incluidos créditos) cubren → estado "credito" (deuda vigente,
+            // pero mercancía se despacha). En ambos casos se descuenta stock una sola vez.
+            $cubreEfectivo = $lockedCot->pagosNoCreditoAprobadosCubrenTotal();
+            $cubreConCredito = $lockedCot->pagosAprobadosCubrenTotal();
+
+            if ($cubreEfectivo && $lockedCot->estado !== 'pagada') {
+                if (! $lockedCot->stock_descontado) {
+                    $lockedCot->aprobar();
+                }
                 $lockedCot->update(['estado' => 'pagada']);
+            } elseif ($cubreConCredito && ! in_array($lockedCot->estado, ['pagada', 'credito'], true)) {
+                if (! $lockedCot->stock_descontado) {
+                    $lockedCot->aprobar();
+                }
+                $lockedCot->update(['estado' => 'credito']);
             }
         });
 

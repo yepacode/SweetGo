@@ -20,7 +20,7 @@
                class="rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
         <select name="estado" onchange="this.form.submit()" class="rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
             <option value="">Todos los estados</option>
-            @foreach (['borrador','enviada','pendiente_revision_pago','aprobada','pagada','rechazada'] as $e)
+            @foreach (['borrador','enviada','pendiente_revision_pago','aprobada','pagada','credito','rechazada'] as $e)
                 <option value="{{ $e }}" @selected(request('estado')===$e)>{{ ucfirst(str_replace('_',' ', $e)) }}</option>
             @endforeach
         </select>
