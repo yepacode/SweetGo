@@ -207,10 +207,63 @@
             </div>
             @if ($cotizacion->estado === 'pagada')
                 <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-emerald-100 text-emerald-700 font-medium">✓ Pagada</span>
+            @elseif ($cotizacion->estado === 'credito')
+                <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700 font-medium">A crédito</span>
             @elseif ($cotizacion->estado === 'pendiente_revision_pago')
                 <span class="inline-flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-yellow-100 text-yellow-700 font-medium">Pendiente revisión</span>
             @endif
         </div>
+
+        {{-- ═══════════════════ Panel destacado del crédito ═══════════════════ --}}
+        @if ($cotizacion->estado === 'credito')
+            @php
+                $saldo = $cotizacion->saldoCredito();
+                $abonado = $cotizacion->totalAbonado();
+                $venc = $cotizacion->proximoVencimientoCredito();
+                $aging = $cotizacion->agingCredito();
+                $diasV = $cotizacion->diasVencimientoCredito();
+                $panelClass = match ($aging) {
+                    'vencido'    => 'from-red-50 to-red-100 border-red-200',
+                    'por_vencer' => 'from-amber-50 to-amber-100 border-amber-200',
+                    default      => 'from-emerald-50 to-emerald-100 border-emerald-200',
+                };
+                $vencLabel = match (true) {
+                    $aging === 'vencido'    => 'Vencido hace ' . abs($diasV) . (abs($diasV) === 1 ? ' día' : ' días'),
+                    $aging === 'por_vencer' => 'Vence en ' . $diasV . ($diasV === 1 ? ' día' : ' días'),
+                    $aging === 'al_dia'     => 'Al día · vence en ' . $diasV . ' días',
+                    default                 => 'Sin plazo definido',
+                };
+                $vencColor = match ($aging) {
+                    'vencido'    => 'text-red-700',
+                    'por_vencer' => 'text-amber-700',
+                    default      => 'text-emerald-700',
+                };
+            @endphp
+            <div class="mx-6 mt-4 mb-1 bg-gradient-to-r {{ $panelClass }} border rounded-xl p-4">
+                <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Total del pedido</p>
+                        <p class="text-lg font-semibold text-gray-800">${{ number_format($totalCot, 0, ',', '.') }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wide text-emerald-600 mb-1">Abonado</p>
+                        <p class="text-lg font-semibold text-emerald-700">${{ number_format($abonado, 0, ',', '.') }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wide text-sweetgo-pink mb-1">Saldo pendiente</p>
+                        <p class="text-lg font-bold text-sweetgo-pink">${{ number_format($saldo, 0, ',', '.') }}</p>
+                    </div>
+                    <div>
+                        <p class="text-[10px] uppercase tracking-wide text-gray-500 mb-1">Vencimiento</p>
+                        <p class="text-sm font-semibold text-gray-800">{{ $venc?->format('d/m/Y') ?? '—' }}</p>
+                        <p class="text-[11px] font-medium {{ $vencColor }}">{{ $vencLabel }}</p>
+                    </div>
+                </div>
+                @if ($saldo > 0)
+                    <p class="text-[11px] text-gray-500 mt-3 italic">💡 Para registrar un abono, usá el formulario «Registrar pago» debajo con el monto que el cliente esté pagando.</p>
+                @endif
+            </div>
+        @endif
 
         {{-- Barra de progreso --}}
         <div class="px-6 pt-4">

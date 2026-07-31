@@ -126,6 +126,9 @@ Route::middleware(['auth', 'role:admin|vendedor'])->group(function () {
     | COMPARTIDO admin + vendedor
     |----------------------------------------------------------------------
     */
+    // Cuentas por cobrar (créditos)
+    Route::get('creditos', [\App\Http\Controllers\CreditoController::class, 'index'])->name('creditos.index');
+
     // Notificaciones dirigidas al usuario (marcar como leídas)
     Route::post('notificaciones/leidas', function (\Illuminate\Http\Request $r) {
         \App\Models\Notificacion::where('para_user_id', auth()->id())->whereNull('leida_at')->update(['leida_at' => now()]);

@@ -15,7 +15,7 @@ class NotificacionesComposer
     {
         $u = Auth::user();
         if (! $u) {
-            $view->with('notificaciones', ['total' => 0, 'stockBajo' => collect(), 'garantiasAbiertas' => collect(), 'cotizacionesEnviadas' => collect(), 'alertas' => collect()]);
+            $view->with('notificaciones', ['total' => 0, 'stockBajo' => collect(), 'garantiasAbiertas' => collect(), 'cotizacionesEnviadas' => collect(), 'alertas' => collect(), 'creditosVencidos' => collect(), 'creditosPorVencer' => collect()]);
             return;
         }
 
@@ -40,6 +40,15 @@ class NotificacionesComposer
             ->latest()->limit(5)
             ->get(['id', 'numero', 'total']);
 
+        // Créditos vencidos y por vencer (7 días) — respeta scope.
+        $creditos = Cotizacion::enCredito()
+            ->when(! $esAdmin, fn ($q) => $q->where('user_id', $u->id))
+            ->with('pagos')
+            ->get(['id', 'numero', 'total', 'cliente_id'])
+            ->load('cliente:id,nombre');
+        $creditosVencidos = $creditos->filter(fn ($c) => $c->agingCredito() === 'vencido')->take(5)->values();
+        $creditosPorVencer = $creditos->filter(fn ($c) => $c->agingCredito() === 'por_vencer')->take(5)->values();
+
         // Alertas dirigidas al usuario (ej. cotización editada por vendedor).
         $alertas = Notificacion::where('para_user_id', $u->id)
             ->noLeidas()
@@ -48,10 +57,12 @@ class NotificacionesComposer
             ->get(['id', 'tipo', 'titulo', 'mensaje', 'url', 'created_at']);
 
         $view->with('notificaciones', [
-            'total' => $stockBajo->count() + $garantiasAbiertas->count() + $cotizacionesEnviadas->count() + $alertas->count(),
+            'total' => $stockBajo->count() + $garantiasAbiertas->count() + $cotizacionesEnviadas->count() + $alertas->count() + $creditosVencidos->count() + $creditosPorVencer->count(),
             'stockBajo' => $stockBajo,
             'garantiasAbiertas' => $garantiasAbiertas,
             'cotizacionesEnviadas' => $cotizacionesEnviadas,
+            'creditosVencidos' => $creditosVencidos,
+            'creditosPorVencer' => $creditosPorVencer,
             'alertas' => $alertas,
         ]);
     }

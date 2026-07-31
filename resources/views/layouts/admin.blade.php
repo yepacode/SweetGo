@@ -40,6 +40,9 @@
                     ['label' => 'Catálogo',      'route' => 'catalogo.index',   'icon' => 'M12 6.5A2.5 2.5 0 0114.5 4H21v14h-6.5a2.5 2.5 0 00-2.5 2.5M12 6.5A2.5 2.5 0 009.5 4H3v14h6.5a2.5 2.5 0 012.5 2.5M12 6.5v14'],
                 ];
 
+                // Créditos / cuentas por cobrar — visible a todos (admin ve todo, vendedor lo suyo)
+                $modules[] = ['label' => 'Créditos',   'route' => 'creditos.index',   'icon' => 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z'];
+
                 if ($esAdmin) {
                     // Módulos solo para administrador: inventario, productos, garantías, links, usuarios, reportes, bitácora.
                     $modules[] = ['label' => 'Productos',  'route' => 'productos.index',  'icon' => 'M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4'];
@@ -175,6 +178,26 @@
                                     <a href="{{ route('stock.kardex', $p) }}" class="flex items-center justify-between px-4 py-2 hover:bg-sweetgo-pink-light/30">
                                         <span class="text-gray-700 truncate">{{ $p->nombre }}</span>
                                         <span class="ml-2 inline-block px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-medium">{{ $p->stock_actual }}/{{ $p->stock_minimo }}</span>
+                                    </a>
+                                @endforeach
+                            @endif
+
+                            @if (! empty($notificaciones['creditosVencidos']) && $notificaciones['creditosVencidos']->isNotEmpty())
+                                <div class="px-4 py-2 bg-red-50 text-xs font-medium text-red-600 uppercase tracking-wide">Créditos vencidos</div>
+                                @foreach ($notificaciones['creditosVencidos'] as $c)
+                                    <a href="{{ route('cotizaciones.show', $c) }}" class="flex items-center justify-between px-4 py-2 hover:bg-sweetgo-pink-light/30">
+                                        <span class="text-gray-700 truncate">{{ $c->numero }} · {{ $c->cliente?->nombre }}</span>
+                                        <span class="ml-2 inline-block px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-xs font-medium">${{ number_format($c->saldoCredito(), 0, ',', '.') }}</span>
+                                    </a>
+                                @endforeach
+                            @endif
+
+                            @if (! empty($notificaciones['creditosPorVencer']) && $notificaciones['creditosPorVencer']->isNotEmpty())
+                                <div class="px-4 py-2 bg-amber-50 text-xs font-medium text-amber-700 uppercase tracking-wide">Créditos por vencer</div>
+                                @foreach ($notificaciones['creditosPorVencer'] as $c)
+                                    <a href="{{ route('cotizaciones.show', $c) }}" class="flex items-center justify-between px-4 py-2 hover:bg-sweetgo-pink-light/30">
+                                        <span class="text-gray-700 truncate">{{ $c->numero }} · {{ $c->cliente?->nombre }}</span>
+                                        <span class="ml-2 inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-medium">${{ number_format($c->saldoCredito(), 0, ',', '.') }}</span>
                                     </a>
                                 @endforeach
                             @endif

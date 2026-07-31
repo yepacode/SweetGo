@@ -97,6 +97,57 @@ class Cotizacion extends Model
         return bccomp($this->montoPagadoAprobadoSinCredito(), (string) $this->total, 2) >= 0;
     }
 
+    /** Saldo del crédito: total menos abonos reales (efectivo, transferencia, tarjeta) aprobados. */
+    public function saldoCredito(): float
+    {
+        return max(0, (float) $this->total - (float) $this->montoPagadoAprobadoSinCredito());
+    }
+
+    /** Suma de abonos reales aplicados al crédito (para mostrar historial). */
+    public function totalAbonado(): float
+    {
+        return (float) $this->montoPagadoAprobadoSinCredito();
+    }
+
+    /** Fecha de vencimiento más próxima entre los pagos crédito aprobados. Null si no hay. */
+    public function proximoVencimientoCredito()
+    {
+        $fecha = $this->pagos()
+            ->where('metodo', 'credito')
+            ->where('estado', 'aprobado')
+            ->whereNotNull('fecha_vencimiento')
+            ->orderBy('fecha_vencimiento')
+            ->value('fecha_vencimiento');
+        return $fecha ? \Carbon\Carbon::parse($fecha) : null;
+    }
+
+    /**
+     * Aging del crédito: 'vencido' | 'por_vencer' (≤7 días) | 'al_dia' | 'sin_plazo'.
+     * Se calcula sobre proximoVencimientoCredito(). Solo aplica si estado=credito con saldo > 0.
+     */
+    public function agingCredito(): string
+    {
+        $v = $this->proximoVencimientoCredito();
+        if (! $v) return 'sin_plazo';
+        $dias = (int) round(now()->startOfDay()->diffInDays($v->startOfDay(), false));
+        if ($dias < 0) return 'vencido';
+        if ($dias <= 7) return 'por_vencer';
+        return 'al_dia';
+    }
+
+    /** Días para vencer (negativo si venció). Null si sin_plazo. */
+    public function diasVencimientoCredito(): ?int
+    {
+        $v = $this->proximoVencimientoCredito();
+        if (! $v) return null;
+        return (int) round(now()->startOfDay()->diffInDays($v->startOfDay(), false));
+    }
+
+    public function scopeEnCredito($query)
+    {
+        return $query->where('estado', 'credito');
+    }
+
     /**
      * Cotización editable = está en un estado editable Y no tiene pagos activos (pendientes ni aprobados).
      * Los pagos rechazados no bloquean (se pueden volver a subir).
