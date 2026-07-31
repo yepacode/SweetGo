@@ -22,7 +22,9 @@ use Illuminate\Support\Facades\DB;
  */
 class ProductosDeduplicar extends Command
 {
-    protected $signature = 'sweetgo:productos-deduplicar {--force : Aplica los cambios (sin este flag es dry-run)}';
+    protected $signature = 'sweetgo:productos-deduplicar
+        {--force : Aplica los cambios (sin este flag es dry-run)}
+        {--suffix-refs : Ademas, a las referencias repetidas entre productos de DISTINTO nombre les agrega sufijo -2, -3... para que queden unicas (requiere --force)}';
 
     protected $description = 'Detecta y consolida productos duplicados (mismo nombre + referencia). Dry-run por defecto.';
 
@@ -102,6 +104,66 @@ class ProductosDeduplicar extends Command
         } else {
             $this->warn("Dry-run: se fusionarían {$totalFundidos} duplicados. Corré con --force para aplicar.");
         }
+
+        // --- Referencias repetidas entre productos de DISTINTO nombre ---
+        // Estas NO se fusionan (son productos distintos), pero rompen el índice UNIQUE.
+        $this->newLine();
+        $this->reportarReferenciasDuplicadas($force);
+
         return self::SUCCESS;
+    }
+
+    /**
+     * Detecta referencias compartidas por productos distintos (que quedan tras la fusión).
+     * Con --suffix-refs + --force les agrega -2, -3... para que el índice UNIQUE pueda crearse.
+     */
+    private function reportarReferenciasDuplicadas(bool $force): void
+    {
+        $suffix = (bool) $this->option('suffix-refs');
+
+        $refs = Producto::selectRaw('referencia, COUNT(*) AS cuantos, GROUP_CONCAT(id ORDER BY id) AS ids, GROUP_CONCAT(nombre ORDER BY id SEPARATOR " || ") AS nombres')
+            ->whereNotNull('referencia')
+            ->where('referencia', '!=', '')
+            ->groupBy('referencia')
+            ->having('cuantos', '>', 1)
+            ->get();
+
+        if ($refs->isEmpty()) {
+            $this->info('✅ No quedan referencias duplicadas. El índice UNIQUE se puede crear (php artisan migrate).');
+            return;
+        }
+
+        $this->warn("⚠ Hay {$refs->count()} REFERENCIAS repetidas entre productos DISTINTOS (bloquean el UNIQUE):");
+        foreach ($refs as $r) {
+            $this->line("  • ref «{$r->referencia}»  x{$r->cuantos}  ids={$r->ids}");
+            $this->line("      nombres: {$r->nombres}");
+        }
+
+        if (! $suffix) {
+            $this->newLine();
+            $this->warn('Estas son productos DIFERENTES con la misma referencia. Opciones:');
+            $this->line('  a) Corregí la referencia correcta de cada uno desde la web (Productos → Editar).');
+            $this->line('  b) O corré:  php artisan sweetgo:productos-deduplicar --force --suffix-refs');
+            $this->line('     (deja la 1a igual y a las demás les pone -2, -3... para que sean unicas; luego las editás)');
+            return;
+        }
+
+        if (! $force) {
+            $this->error('--suffix-refs requiere --force para aplicar cambios.');
+            return;
+        }
+
+        $renombrados = 0;
+        foreach ($refs as $r) {
+            $ids = array_map('intval', explode(',', $r->ids));
+            array_shift($ids); // la primera conserva la referencia original
+            $n = 2;
+            foreach ($ids as $id) {
+                Producto::whereKey($id)->update(['referencia' => $r->referencia . '-' . $n]);
+                $n++;
+                $renombrados++;
+            }
+        }
+        $this->info("✅ {$renombrados} referencias renombradas con sufijo. Ahora podés correr: php artisan migrate");
     }
 }
