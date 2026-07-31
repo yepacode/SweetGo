@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Bitacora;
 use App\Models\Cotizacion;
+use App\Models\Notificacion;
 use App\Models\Pago;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -34,6 +35,7 @@ class PagoController extends Controller
             'monto' => ['required', 'numeric', 'min:0.01'],
             'referencia' => ['nullable', 'string', 'max:100'],
             'notas' => ['nullable', 'string'],
+            'dias_credito' => ['nullable', 'integer', 'min:1', 'max:365'],
             // mimetypes: sniff real del archivo (evita renombrar .php a .jpg)
             'comprobante' => ['nullable', 'file', 'mimetypes:image/jpeg,image/png,image/webp,application/pdf', 'max:8192'],
         ]);
@@ -43,14 +45,22 @@ class PagoController extends Controller
             return back()->withErrors(['comprobante' => 'Debes adjuntar comprobante para transferencia o tarjeta.'])->withInput();
         }
 
+        // Si es crédito, calcular fecha de vencimiento a partir de los días (default 30).
+        $fechaVencimiento = null;
+        if ($data['metodo'] === 'credito') {
+            $dias = (int) ($data['dias_credito'] ?? 30);
+            $fechaVencimiento = now()->addDays($dias)->toDateString();
+        }
+
         // Comprobante en disco PRIVADO (local): la descarga siempre pasa por el controller con ownership.
         $comprobante = $request->hasFile('comprobante')
             ? $request->file('comprobante')->store("pagos/{$cotizacion->id}", 'local')
             : null;
 
         // Sección crítica: lock + check de sobreabono + create + transición de estado en una transacción.
+        $pagoCreado = null;
         try {
-            DB::transaction(function () use ($cotizacion, $data, $comprobante) {
+            DB::transaction(function () use ($cotizacion, $data, $comprobante, $fechaVencimiento, &$pagoCreado) {
                 $locked = Cotizacion::whereKey($cotizacion->id)->lockForUpdate()->firstOrFail();
 
                 $pagadoActual = (float) $locked->montoPagado();
@@ -59,7 +69,7 @@ class PagoController extends Controller
                     throw new \RuntimeException('El monto excede lo que resta por pagar ('.number_format($resta, 0, ',', '.').').');
                 }
 
-                Pago::create([
+                $pagoCreado = Pago::create([
                     'cotizacion_id' => $locked->id,
                     'user_id' => Auth::id(),
                     'metodo' => $data['metodo'],
@@ -67,6 +77,7 @@ class PagoController extends Controller
                     'referencia' => $data['referencia'] ?? null,
                     'comprobante' => $comprobante,
                     'notas' => $data['notas'] ?? null,
+                    'fecha_vencimiento' => $fechaVencimiento,
                     'estado' => 'pendiente',
                 ]);
 
@@ -85,8 +96,31 @@ class PagoController extends Controller
 
         Bitacora::registrar('creó', "Registró pago en {$cotizacion->numero}", 'Pago', $cotizacion->id);
 
+        // Notificar a los admins del pago pendiente (siempre, aunque quien lo registre sea admin,
+        // para que quede la alerta en la campanita hasta que alguien lo apruebe/rechace).
+        if ($pagoCreado) {
+            $quien = Auth::user()->name;
+            $metodoLabel = $pagoCreado->metodoLabel();
+            $monto = '$' . number_format((float) $pagoCreado->monto, 0, ',', '.');
+            $venceLinea = $fechaVencimiento
+                ? "\n📅 Vence el " . \Carbon\Carbon::parse($fechaVencimiento)->format('d/m/Y')
+                : '';
+            $refLinea = ! empty($data['referencia']) ? "\nRef: {$data['referencia']}" : '';
+
+            Notificacion::alertarAdmins(
+                'pago_pendiente',
+                "{$cotizacion->numero} · pago pendiente de aprobación",
+                "💳 {$quien} registró un pago:\n{$metodoLabel} por {$monto}{$refLinea}{$venceLinea}\n\nRevisa y aprueba/rechaza en la cotización.",
+                route('cotizaciones.show', $cotizacion)
+            );
+        }
+
+        $mensajeExito = $data['metodo'] === 'credito'
+            ? 'Crédito registrado. Queda pendiente de aprobación por el administrador.'
+            : 'Pago registrado. Queda pendiente de revisión por el administrador.';
+
         return redirect()->route('cotizaciones.show', $cotizacion)
-            ->with('success', 'Pago registrado. Queda pendiente de revisión por el administrador.');
+            ->with('success', $mensajeExito);
     }
 
     /** Admin aprueba un pago específico. */

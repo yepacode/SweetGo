@@ -10,11 +10,13 @@ class Pago extends Model
 
     protected $fillable = [
         'cotizacion_id', 'user_id', 'metodo', 'monto', 'referencia',
-        'comprobante', 'notas', 'estado', 'aprobado_por_id', 'aprobado_at', 'rechazo_motivo',
+        'comprobante', 'notas', 'fecha_vencimiento',
+        'estado', 'aprobado_por_id', 'aprobado_at', 'rechazo_motivo',
     ];
 
     protected $casts = [
         'monto' => 'decimal:2',
+        'fecha_vencimiento' => 'date',
         'aprobado_at' => 'datetime',
     ];
 
@@ -42,9 +44,25 @@ class Pago extends Model
             'efectivo' => 'Efectivo',
             'transferencia' => 'Transferencia',
             'tarjeta' => 'Tarjeta',
-            'credito' => 'Crédito directo',
+            'credito' => 'Crédito (venta a plazo)',
             default => ucfirst($this->metodo),
         };
+    }
+
+    /** ¿Es un crédito vencido? (solo aplica si method=credito y ya hay fecha_vencimiento). */
+    public function estaVencido(): bool
+    {
+        return $this->metodo === 'credito'
+            && $this->fecha_vencimiento
+            && $this->fecha_vencimiento->isPast()
+            && $this->estado === 'aprobado';
+    }
+
+    /** Días restantes para vencer (negativo si ya venció). Null si no hay fecha. */
+    public function diasParaVencer(): ?int
+    {
+        if (! $this->fecha_vencimiento) return null;
+        return (int) round(now()->startOfDay()->diffInDays($this->fecha_vencimiento->startOfDay(), false));
     }
 
     public function estadoBadge(): string

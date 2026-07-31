@@ -238,6 +238,17 @@
                             Registró {{ $pago->registradoPor?->name ?? '—' }} · {{ $pago->created_at->format('d/m/Y H:i') }}
                             @if ($pago->referencia) · Ref: {{ $pago->referencia }}@endif
                         </p>
+                        @if ($pago->metodo === 'credito' && $pago->fecha_vencimiento)
+                            @php $dias = $pago->diasParaVencer(); @endphp
+                            <p class="text-[11px] mt-1">
+                                <span class="text-gray-500">📅 Vence: {{ $pago->fecha_vencimiento->format('d/m/Y') }}</span>
+                                @if ($pago->estaVencido())
+                                    <span class="ml-1 inline-block px-2 py-0.5 rounded-full bg-red-100 text-red-600 text-[10px] font-medium">Vencido hace {{ abs($dias) }} {{ abs($dias) === 1 ? 'día' : 'días' }}</span>
+                                @elseif ($pago->estado === 'aprobado' && $dias !== null && $dias <= 7)
+                                    <span class="ml-1 inline-block px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 text-[10px] font-medium">Vence en {{ $dias }} {{ $dias === 1 ? 'día' : 'días' }}</span>
+                                @endif
+                            </p>
+                        @endif
                         @if ($pago->notas)
                             <p class="text-xs text-gray-500 mt-1 italic">{{ $pago->notas }}</p>
                         @endif
@@ -298,7 +309,7 @@
                             <option value="efectivo">Efectivo</option>
                             <option value="transferencia">Transferencia</option>
                             <option value="tarjeta">Tarjeta</option>
-                            <option value="credito">Crédito directo con la empresa</option>
+                            <option value="credito">Crédito (venta a plazo)</option>
                         </select>
                     </div>
                     <div>
@@ -321,6 +332,13 @@
                         </label>
                         <input type="file" name="comprobante" accept="image/*,application/pdf"
                                class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-sweetgo-pink-light file:text-sweetgo-pink">
+                    </div>
+                    {{-- Plazo del crédito: aparece solo cuando el método es «crédito» --}}
+                    <div x-show="metodo === 'credito'" x-cloak>
+                        <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Días de crédito</label>
+                        <input type="number" name="dias_credito" min="1" max="365" value="{{ old('dias_credito', 30) }}"
+                               class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                        <p class="text-[10px] text-gray-400 mt-1">Vencimiento se calcula desde hoy</p>
                     </div>
                     <div class="sm:col-span-4">
                         <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Notas (opcional)</label>
