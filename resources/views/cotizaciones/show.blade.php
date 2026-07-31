@@ -193,6 +193,11 @@
         $pct = $totalCot > 0 ? min(100, round(($pagado / $totalCot) * 100)) : 0;
         $pctAprobado = $totalCot > 0 ? min(100, round(($aprobado / $totalCot) * 100)) : 0;
         $puedeRegistrarPago = ! in_array($cotizacion->estado, ['pagada', 'rechazada'], true);
+        // Para créditos, "lo que resta por cubrir" es el saldo real (excluye los pagos crédito).
+        // Sin esto el form se ocultaba porque el crédito ya sumaba como "pagado" y no dejaba abonar.
+        $restaPorCubrir = $cotizacion->estado === 'credito'
+            ? (float) $cotizacion->saldoCredito()
+            : max(0, $totalCot - $pagado);
     @endphp
 
     <div class="mt-6 bg-white rounded-xl border border-sweetgo-pink-light overflow-hidden">
@@ -343,10 +348,18 @@
             @endforelse
         </div>
 
-        {{-- Form: registrar pago --}}
-        @if ($puedeRegistrarPago && $pagado < $totalCot)
+        {{-- Form: registrar pago (para créditos usa saldoCredito, para el resto el pendiente clásico) --}}
+        @if ($puedeRegistrarPago && $restaPorCubrir > 0)
             <div x-data="{ metodo: 'efectivo' }" class="px-6 py-4 border-t border-gray-100 bg-gray-50">
-                <h4 class="text-sm font-semibold text-gray-700 mb-3">Registrar pago</h4>
+                <h4 class="text-sm font-semibold text-gray-700 mb-3">
+                    {{ $cotizacion->estado === 'credito' ? 'Registrar abono al crédito' : 'Registrar pago' }}
+                </h4>
+                @if ($cotizacion->estado === 'credito')
+                    <p class="text-xs text-gray-500 mb-3">
+                        💡 Saldo pendiente: <strong class="text-sweetgo-pink">${{ number_format($restaPorCubrir, 0, ',', '.') }}</strong>.
+                        Elegí <em>Efectivo / Transferencia / Tarjeta</em> — para transferencia y tarjeta es obligatorio adjuntar el comprobante.
+                    </p>
+                @endif
                 @if ($errors->any())
                     <div class="mb-3 rounded-lg bg-red-50 border border-red-200 text-red-600 px-3 py-2 text-xs">
                         @foreach ($errors->all() as $e)<div>· {{ $e }}</div>@endforeach
@@ -368,8 +381,8 @@
                     <div>
                         <label class="block text-[10px] uppercase tracking-wide text-gray-500 mb-1">Monto (COP)</label>
                         <input type="number" name="monto" min="1" step="1" required
-                               max="{{ (int) ($totalCot - $pagado) }}"
-                               placeholder="Máx {{ number_format($totalCot - $pagado, 0, ',', '.') }}"
+                               max="{{ (int) $restaPorCubrir }}"
+                               placeholder="Máx {{ number_format($restaPorCubrir, 0, ',', '.') }}"
                                class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
                     </div>
                     <div>

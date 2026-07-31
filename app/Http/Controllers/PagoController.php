@@ -63,8 +63,16 @@ class PagoController extends Controller
             DB::transaction(function () use ($cotizacion, $data, $comprobante, $fechaVencimiento, &$pagoCreado) {
                 $locked = Cotizacion::whereKey($cotizacion->id)->lockForUpdate()->firstOrFail();
 
-                $pagadoActual = (float) $locked->montoPagado();
-                $resta = (float) $locked->total - $pagadoActual;
+                // Para cotizaciones a crédito, el "resto por pagar" es el saldo real (excluye pagos crédito),
+                // porque el crédito registrado no es dinero cobrado sino deuda otorgada. Sin esto el sistema
+                // rechazaba los abonos con "el monto excede lo que resta por pagar" apenas el crédito
+                // igualaba al total.
+                if ($locked->estado === 'credito') {
+                    $resta = (float) $locked->saldoCredito();
+                } else {
+                    $pagadoActual = (float) $locked->montoPagado();
+                    $resta = (float) $locked->total - $pagadoActual;
+                }
                 if ((float) $data['monto'] > $resta + 0.01) {
                     throw new \RuntimeException('El monto excede lo que resta por pagar ('.number_format($resta, 0, ',', '.').').');
                 }
