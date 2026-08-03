@@ -16,26 +16,30 @@
                 <h3 class="font-semibold text-gray-700 mb-3">Listas</h3>
                 <div class="space-y-2">
                     @foreach ($listas as $lista)
-                        <form method="POST" action="{{ route('listas-precios.update', $lista) }}"
-                              class="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 px-3 py-2">
-                            @csrf @method('PATCH')
-                            <input type="text" name="nombre" value="{{ $lista->nombre }}"
-                                   class="rounded-lg border-gray-200 text-sm py-1.5 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
-                            <label class="inline-flex items-center gap-1.5 text-xs text-gray-600">
-                                <input type="checkbox" name="es_publica" value="1" @checked($lista->es_publica)
-                                       class="rounded border-gray-300 text-sweetgo-turquoise focus:ring-sweetgo-turquoise"> Pública (catálogo)
-                            </label>
-                            <label class="inline-flex items-center gap-1.5 text-xs text-gray-600">
-                                <input type="checkbox" name="es_predeterminada" value="1" @checked($lista->es_predeterminada)
-                                       class="rounded border-gray-300 text-sweetgo-pink focus:ring-sweetgo-pink"> Predeterminada
-                            </label>
-                            <button class="text-xs text-sweetgo-pink font-medium hover:underline">Guardar</button>
+                        <div class="flex flex-wrap items-center gap-3 rounded-lg border border-gray-100 px-3 py-2">
+                            <form method="POST" action="{{ route('listas-precios.update', $lista) }}"
+                                  class="flex flex-wrap items-center gap-3">
+                                @csrf @method('PATCH')
+                                <input type="text" name="nombre" value="{{ $lista->nombre }}"
+                                       class="rounded-lg border-gray-200 text-sm py-1.5 focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                                <label class="inline-flex items-center gap-1.5 text-xs text-gray-600">
+                                    <input type="checkbox" name="es_publica" value="1" @checked($lista->es_publica)
+                                           class="rounded border-gray-300 text-sweetgo-turquoise focus:ring-sweetgo-turquoise"> Pública (catálogo)
+                                </label>
+                                <label class="inline-flex items-center gap-1.5 text-xs text-gray-600">
+                                    <input type="checkbox" name="es_predeterminada" value="1" @checked($lista->es_predeterminada)
+                                           class="rounded border-gray-300 text-sweetgo-pink focus:ring-sweetgo-pink"> Predeterminada
+                                </label>
+                                <button class="text-xs text-sweetgo-pink font-medium hover:underline">Guardar</button>
+                            </form>
                             @unless ($lista->es_publica || $lista->es_predeterminada)
-                                <button formaction="{{ route('listas-precios.destroy', $lista) }}" formmethod="POST"
-                                        onclick="return confirm('¿Eliminar la lista «{{ $lista->nombre }}»?')"
-                                        class="text-xs text-red-400 hover:text-red-600">Eliminar</button>
+                                <form method="POST" action="{{ route('listas-precios.destroy', $lista) }}"
+                                      onsubmit="return confirm('¿Eliminar la lista «{{ $lista->nombre }}»?')">
+                                    @csrf @method('DELETE')
+                                    <button type="submit" class="text-xs text-red-400 hover:text-red-600">Eliminar</button>
+                                </form>
                             @endunless
-                        </form>
+                        </div>
                     @endforeach
                 </div>
             </div>
