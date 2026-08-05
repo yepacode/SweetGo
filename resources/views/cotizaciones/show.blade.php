@@ -522,8 +522,8 @@
                 </div>
             @endif
 
-            {{-- Form: configurar o actualizar envío --}}
-            @if (! $envio || $envio->estado === 'pendiente')
+            {{-- Form: configurar o actualizar envío. Editable mientras NO esté entregado/cancelado. --}}
+            @if (! $envio || in_array($envio->estado, ['pendiente','en_ruta'], true))
                 <form method="POST" action="{{ route('envio.store', $cotizacion) }}" enctype="multipart/form-data"
                       class="px-6 py-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     @csrf
@@ -646,16 +646,17 @@
                 </form>
             @endif
 
-            {{-- Cambio de estado (solo admin) --}}
+            {{-- Cambio de estado (solo admin). Acepta también subir/reemplazar la guía. --}}
             @if ($envio && auth()->user()->hasRole('admin'))
                 <div class="px-6 py-4 border-t border-gray-100 bg-gray-50">
                     <p class="text-[10px] uppercase tracking-wide text-gray-500 mb-2 font-medium">Estado del envío</p>
-                    <form method="POST" action="{{ route('envio.estado', [$cotizacion, $envio]) }}" class="flex flex-wrap items-end gap-3">
+                    <form method="POST" action="{{ route('envio.estado', [$cotizacion, $envio]) }}"
+                          enctype="multipart/form-data" class="grid grid-cols-1 sm:grid-cols-5 gap-3 items-end">
                         @csrf @method('PATCH')
                         <div>
                             <label class="block text-[10px] text-gray-500 mb-1">Estado</label>
                             <select name="estado" required
-                                    class="rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                                    class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
                                 <option value="pendiente" @selected($envio->estado === 'pendiente')>Pendiente</option>
                                 <option value="en_ruta" @selected($envio->estado === 'en_ruta')>En ruta</option>
                                 <option value="entregado" @selected($envio->estado === 'entregado')>Entregado</option>
@@ -665,14 +666,29 @@
                         <div>
                             <label class="block text-[10px] text-gray-500 mb-1">Transportador</label>
                             <input type="text" name="transportador" value="{{ $envio->transportador }}"
-                                   class="rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                                   class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
                         </div>
                         <div>
                             <label class="block text-[10px] text-gray-500 mb-1">Guía</label>
                             <input type="text" name="guia_numero" value="{{ $envio->guia_numero }}"
-                                   class="rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
+                                   class="w-full rounded-lg border-gray-200 text-sm focus:border-sweetgo-pink focus:ring-sweetgo-pink">
                         </div>
-                        <button class="px-4 py-2 rounded-lg bg-sweetgo-turquoise text-white text-sm hover:opacity-90">Actualizar estado</button>
+                        <div class="sm:col-span-2">
+                            <label class="block text-[10px] text-gray-500 mb-1">Guía (foto o PDF)</label>
+                            <input type="file" name="guia_archivo" accept="image/jpeg,image/png,image/webp,application/pdf"
+                                   class="w-full text-xs text-gray-500 file:mr-2 file:py-1.5 file:px-3 file:rounded file:border-0 file:text-xs file:bg-sweetgo-pink-light file:text-sweetgo-pink">
+                            @if ($envio->guia_archivo)
+                                <p class="text-[10px] text-gray-500 mt-1">Actual:
+                                    <a href="{{ $envio->guiaUrl() }}" target="_blank" rel="noopener" class="text-sweetgo-pink hover:underline">
+                                        {{ $envio->guiaEsImagen() ? 'ver foto' : 'ver PDF' }} ↗
+                                    </a>
+                                    <span class="text-gray-400">· subir otra para reemplazar</span>
+                                </p>
+                            @endif
+                        </div>
+                        <div class="sm:col-span-5 flex justify-end">
+                            <button class="px-4 py-2 rounded-lg bg-sweetgo-turquoise text-white text-sm hover:opacity-90">Actualizar</button>
+                        </div>
                     </form>
                 </div>
             @endif

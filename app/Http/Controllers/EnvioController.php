@@ -55,7 +55,7 @@ class EnvioController extends Controller
             ->with('success', 'Envío configurado.');
     }
 
-    /** Cambia estado del envío (admin). */
+    /** Cambia estado del envío + permite subir/reemplazar la guía (solo admin). */
     public function estado(Request $request, Cotizacion $cotizacion, Envio $envio)
     {
         abort_unless(Auth::user()->hasRole('admin'), 403);
@@ -65,8 +65,18 @@ class EnvioController extends Controller
             'estado' => ['required', 'in:'.implode(',', Envio::ESTADOS)],
             'transportador' => ['nullable', 'string', 'max:120'],
             'guia_numero' => ['nullable', 'string', 'max:60'],
+            'guia_archivo' => ['nullable', 'file', 'mimes:jpg,jpeg,png,webp,pdf', 'max:8192'],
         ]);
 
+        // Si suben nueva guía, reemplaza la anterior en el disco público.
+        if ($request->hasFile('guia_archivo')) {
+            if ($envio->guia_archivo) {
+                Storage::disk('public')->delete($envio->guia_archivo);
+            }
+            $data['guia_archivo'] = $request->file('guia_archivo')->store('envios/guias', 'public');
+        }
+
+        // Solo setea entregado_at cuando pasa a "entregado" (o lo limpia si vuelve a otro estado).
         $data['entregado_at'] = $data['estado'] === 'entregado' ? now() : null;
         $envio->update($data);
 
